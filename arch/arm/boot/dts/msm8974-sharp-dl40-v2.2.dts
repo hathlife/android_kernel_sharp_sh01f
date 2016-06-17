@@ -1,0 +1,32 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "msm8974-v2.2.dtsi"		// no touch
+// DL40K merge start
+///include/ "msm8974-cdp.dtsi" -> sharp-dl40.dtsi
+// DL40K merge end
+
+// DL40K merge start
+/include/ "sharp-common.dtsi"		// add new file
+/include/ "sharp-common-v2.2.dtsi"	// copy base finish
+/include/ "sharp-dl40.dtsi"		// merge finish (base filse msm8974-cdp.dtsi)
+// DL40K merge end
+
+/ {
+	model = "sharp dl40 v2.2";
+	compatible = "qcom,sharp-dl40", "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
+	qcom,msm-id = <126 31 0x20002>,
+		      <185 31 0x20002>,
+		      <186 31 0x20002>;
+};

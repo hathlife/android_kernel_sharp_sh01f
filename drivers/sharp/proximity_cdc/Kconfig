@@ -1,0 +1,13 @@
+#
+# Proximity device configuration
+#
+# drivers/sharp/proximity/Kconfig
+
+menu "Proximity CDC Configuration"
+
+config SENSORS_CDC_PROXIMITY
+	tristate "Proximity CDC Sensor Driver"
+	default n
+
+endmenu
+

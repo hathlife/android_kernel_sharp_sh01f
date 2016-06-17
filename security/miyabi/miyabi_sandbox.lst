@@ -1,0 +1,4 @@
+/* -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*	[Direction]			[GUID]						[Calling application]		[Flags] 			[Policy]	*/
+	{D_MIYABISANDBOX_SYSTEM,	"caa1dcc7-ebcd-4dd5-91a9-a5cc333e8ad8",	"/sbin/dmmd",				F_MIYABISANDBOX_RDONLY,	P_MIYABISANDBOX_SYSTEM},
+
