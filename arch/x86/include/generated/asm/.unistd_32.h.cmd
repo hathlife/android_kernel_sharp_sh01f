@@ -1,0 +1,1 @@
+cmd_arch/x86/syscalls/../include/generated/asm/unistd_32.h := /bin/bash '/home/toonaive/github/android_kernel_sharp_sh01f/arch/x86/syscalls/syscallhdr.sh' '/home/toonaive/github/android_kernel_sharp_sh01f/arch/x86/syscalls/syscall_32.tbl' 'arch/x86/syscalls/../include/generated/asm/unistd_32.h' 'i386' '' ''
