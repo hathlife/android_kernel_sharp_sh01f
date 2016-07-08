@@ -412,11 +412,11 @@ struct _mmc_csd {
 #define EXT_CSD_DYNCAP_NEEDED		BIT(1)
 #define EXT_CSD_SYSPOOL_EXHAUSTED	BIT(2)
 
-#ifdef CONFIG_MMC_CUST_SH
+//#ifdef CONFIG_MMC_CUST_SH
   #define HOST_MMC_MMC 	"mmc0"
   #define HOST_MMC_SD 	"mmc1"
   #define HOST_MMC_SDIO "mmc2"
-#endif /* CONFIG_MMC_CUST_SH */
+//#endif /* CONFIG_MMC_CUST_SH */
 
 /*
  * BKOPS status level

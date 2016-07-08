@@ -29,9 +29,9 @@
 #include "core.h"
 #include "host.h"
 
-#ifndef CONFIG_RESET_CLK_SCALING_PARAM_EMMC_CUST_SH
+//#ifndef CONFIG_RESET_CLK_SCALING_PARAM_EMMC_CUST_SH
 #include <linux/mmc/mmc.h>
-#endif /* CONFIG_RESET_CLK_SCALING_PARAM_EMMC_CUST_SH */
+//#endif /* CONFIG_RESET_CLK_SCALING_PARAM_EMMC_CUST_SH */
 
 #define cls_dev_to_mmc_host(d)	container_of(d, struct mmc_host, class_dev)
 
