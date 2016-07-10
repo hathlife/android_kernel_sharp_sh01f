@@ -397,8 +397,8 @@ typedef enum
   /* TDLS_Indication */
   WDI_TDLS_IND,
 
-  /* LPHB Indication from FW to umac */
-  WDI_LPHB_IND,
+  /* LPHB Timeout Indication from FW to umac */
+  WDI_LPHB_WAIT_TIMEOUT_IND,
 
   /* IBSS Peer Inactivity Indication */
   WDI_IBSS_PEER_INACTIVITY_IND,
@@ -750,80 +750,6 @@ typedef struct
    WDI_ChAvoidFreqType avoidFreqRange[WDI_CH_AVOID_MAX_RANGE];
 } WDI_ChAvoidIndType;
 #endif /* FEATURE_WLAN_CH_AVOID */
-
-/*---------------------------------------------------------------------------
- WDI_TxRateFlags
------------------------------------------------------------------------------*/
-typedef enum
-{
-   WDI_TX_RATE_LEGACY = 0x1,    /* Legacy rates */
-   WDI_TX_RATE_HT20   = 0x2,    /* HT20 rates */
-   WDI_TX_RATE_HT40   = 0x4,    /* HT40 rates */
-   WDI_TX_RATE_SGI    = 0x8,    /* Rate with Short guard interval */
-   WDI_TX_RATE_LGI    = 0x10,   /* Rate with Long guard interval */
-   WDI_TX_RATE_VHT20  = 0x20,   /* VHT 20 rates */
-   WDI_TX_RATE_VHT40  = 0x40,   /* VHT 20 rates */
-   WDI_TX_RATE_VHT80  = 0x80,   /* VHT 20 rates */
-   WDI_TX_RATE_VIRT   = 0x100,  /* Virtual Rate */
-} WDI_TxRateFlags;
-
-/*---------------------------------------------------------------------------
- WDI_RateUpdateIndParams
------------------------------------------------------------------------------*/
-typedef struct
-{
-    /* 0 implies RA, positive value implies fixed rate, -1 implies ignore this
-     * param ucastDataRate can be used to control RA behavior of unicast data to
-     */
-    wpt_int32 ucastDataRate;
-
-    /* TX flag to differentiate between HT20, HT40 etc */
-    WDI_TxRateFlags ucastDataRateTxFlag;
-
-    /* BSSID - Optional. 00-00-00-00-00-00 implies apply to all BCAST STAs */
-    wpt_macAddr bssid;
-
-    /*
-     * 0 implies MCAST RA, positive value implies fixed rate,
-     * -1 implies ignore this param
-     */
-    wpt_int32 reliableMcastDataRate; //unit Mbpsx10
-
-    /* TX flag to differentiate between HT20, HT40 etc */
-    WDI_TxRateFlags reliableMcastDataRateTxFlag;
-
-    /*
-     * MCAST(or BCAST) fixed data rate in 2.4 GHz, unit Mbpsx10,
-     * 0 implies ignore
-     */
-    wpt_uint32 mcastDataRate24GHz;
-
-    /* TX flag to differentiate between HT20, HT40 etc */
-    WDI_TxRateFlags mcastDataRate24GHzTxFlag;
-
-    /*
-     * MCAST(or BCAST) fixed data rate in 5 GHz,
-     * unit Mbpsx10, 0 implies ignore
-     */
-    wpt_uint32 mcastDataRate5GHz;
-
-    /* TX flag to differentiate between HT20, HT40 etc */
-    WDI_TxRateFlags mcastDataRate5GHzTxFlag;
-
-    /*
-     * Request status callback offered by UMAC - it is called if the current
-     * req has returned PENDING as status; it delivers the status of sending
-     * the message over the BUS
-     */
-    WDI_ReqStatusCb   wdiReqStatusCB;
-
-    /*
-     * The user data passed in by UMAC, it will be sent back when the above
-     * function pointer will be called
-     */
-    void   *pUserData;
-
-} WDI_RateUpdateIndParams;
 
 /*---------------------------------------------------------------------------
   WDI_LowLevelIndType
@@ -4690,8 +4616,6 @@ typedef struct
    wpt_uint16 timeout;
    wpt_uint8  session;
    wpt_uint8  gateway_mac[WDI_MAC_ADDR_LEN];
-   wpt_uint16 timePeriodSec; // in seconds
-   wpt_uint32 tcpSn;
 } WDI_LPHBTcpParamStruct;
 
 typedef struct
@@ -4988,7 +4912,7 @@ typedef struct
 
 #ifdef WLAN_FEATURE_ROAM_SCAN_OFFLOAD
 
-#define WDI_ROAM_SCAN_MAX_CHANNELS       80
+#define WDI_ROAM_SCAN_MAX_CHANNELS       80 /* NUM_RF_CHANNELS */
 #define WDI_ROAM_SCAN_MAX_PROBE_SIZE     450
 
 typedef struct
@@ -7338,6 +7262,8 @@ typedef void (*WDI_SetBatchScanCb)(void *pData, WDI_SetBatchScanRspType *pRsp);
 
 #endif
 
+typedef void (*WDI_GetBcnMissRateCb)(wpt_uint8 status, wpt_uint32 bcnMissRate,
+                                     void* pUserData);
 
 /*========================================================================
  *     Function Declarations and Documentation
@@ -10124,26 +10050,6 @@ WDI_dhcpStopInd
   WDI_DHCPInd *wdiDHCPInd
 );
 
-/**
- @brief WDI_RateUpdateInd will be called when the upper MAC
-        requests the device to update rates.
-
-        In state BUSY this request will be queued. Request won't
-        be allowed in any other state.
-
-
- @param wdiRateUpdateIndParams
-
-
- @see WDI_Start
- @return Result of the function call
-*/
-WDI_Status
-WDI_RateUpdateInd
-(
-  WDI_RateUpdateIndParams  *wdiRateUpdateIndParams
-);
-
 #ifdef WLAN_FEATURE_GTK_OFFLOAD
 /**
  @brief WDI_GTKOffloadReq will be called when the upper MAC 
@@ -10423,6 +10329,12 @@ WDI_TriggerBatchScanResultInd(WDI_TriggerBatchScanResultIndType *pWdiReq);
 
 
 #endif /*FEATURE_WLAN_BATCH_SCAN*/
+
+
+WDI_Status WDI_GetBcnMissRate( void *pUserData,
+                                WDI_GetBcnMissRateCb wdiGetBcnMissRateCb,
+                                wpt_uint8   *bssid
+                             );
 
 #ifdef __cplusplus
  }

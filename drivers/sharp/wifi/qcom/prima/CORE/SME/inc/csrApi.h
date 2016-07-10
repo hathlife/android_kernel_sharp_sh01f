@@ -879,13 +879,8 @@ typedef struct tagCsrRoamProfile
     tANI_U8 *pWAPIReqIE;   //If not null, it has the IE byte stream for WAPI
 #endif /* FEATURE_WLAN_WAPI */
 
-    //The byte count in the pAddIE for scan (at the time of join)
-    tANI_U32 nAddIEScanLength;
-    /* Additional IE information.
-     * It has the IE byte stream for additional IE,
-     * which can be WSC IE and/or P2P IE
-     */
-    tANI_U8  addIEScan[SIR_MAC_MAX_IE_LENGTH+2];       //Additional IE information.
+    tANI_U32 nAddIEScanLength;   //The byte count in the pAddIE for scan (at the time of join)
+    tANI_U8 *pAddIEScan;       //If not null, it has the IE byte stream for additional IE, which can be WSC IE and/or P2P IE
     tANI_U32 nAddIEAssocLength;   //The byte count in the pAddIE for assoc
     tANI_U8 *pAddIEAssoc;       //If not null, it has the IE byte stream for additional IE, which can be WSC IE and/or P2P IE
 
@@ -1038,8 +1033,6 @@ typedef struct tagCsrConfigParam
     tANI_U32  nActiveMinChnTime;     //in units of milliseconds
     tANI_U32  nActiveMaxChnTime;     //in units of milliseconds
 
-    tANI_U32  nInitialDwellTime;      //in units of milliseconds
-
     tANI_U32  nActiveMinChnTimeBtc;     //in units of milliseconds
     tANI_U32  nActiveMaxChnTimeBtc;     //in units of milliseconds
     tANI_U32  disableAggWithBtc;
@@ -1136,9 +1129,11 @@ typedef struct tagCsrConfigParam
 
     tANI_U8   enableTxLdpc;
 
+    tANI_BOOLEAN  enableOxygenNwk;
+
     tANI_U8 isAmsduSupportInAMPDU;
     tANI_U8 nSelect5GHzMargin;
-    tANI_BOOLEAN initialScanSkipDFSCh;
+
 }tCsrConfigParam;
 
 //Tush
@@ -1384,7 +1379,6 @@ typedef struct tagCsrTdlsSendMgmt
         tANI_U8 dialog;
         tANI_U16 statusCode;
         tANI_U8 responder;
-        tANI_U32 peerCapability;
         tANI_U8 *buf;
         tANI_U8 len;
 

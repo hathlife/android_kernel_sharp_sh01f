@@ -48,6 +48,11 @@
 #define WLAN_CFG_FILE              "wlan/prima/WCNSS_cfg.dat"
 #define WLAN_FW_FILE               ""
 #define WLAN_NV_FILE               "wlan/prima/WCNSS_qcom_wlan_nv.bin"
+/* [WLAN][SHARP] 2013.07.25 Switching NV files Start */
+#ifdef SH_WIFI_CUSTOMIZE
+#define WLAN_NV_EX_FILE            "wlan/prima/WCNSS_qcom_wlan_nv_EX.bin"
+#endif /* SH_WIFI_CUSTOMIZE */
+/* [WLAN][SHARP] 2013.07.25 Switching NV files End */
 #define WLAN_DICT_FILE             "wlan/prima/WCNSS_qcom_wlan_dictionary.dat"
 #define WLAN_COUNTRY_INFO_FILE     "wlan/prima/WCNSS_wlan_country_info.dat"
 #define WLAN_HO_CFG_FILE           "wlan/prima/WCNSS_wlan_ho_config"
@@ -89,6 +94,12 @@ VOS_STATUS hdd_read_cfg_file(v_VOID_t *pCtx, char *pFileName, v_VOID_t *pBuffer,
 #endif
 
 tVOS_CONCURRENCY_MODE hdd_get_concurrency_mode ( void );
+
+/* [WLAN][SHARP] 2013.07.25 Switching NV files Start */
+#ifdef SH_WIFI_CUSTOMIZE
+VOS_STATUS hdd_judge_nvfilename(char *pfileName);
+#endif /* SH_WIFI_CUSTOMIZE */
+/* [WLAN][SHARP] 2013.07.25 Switching NV files End */
 
 #endif /* WLAN_HDD_MISC_H */
 

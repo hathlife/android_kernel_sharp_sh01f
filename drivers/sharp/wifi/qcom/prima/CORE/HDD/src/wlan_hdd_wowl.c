@@ -98,7 +98,7 @@ static inline int find_ptrn_len(const char* ptrn)
 static void hdd_wowl_callback( void *pContext, eHalStatus halStatus )
 {
   VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
-      "%s: Return code = (%ld)", __func__, halStatus );
+      "%s: Return code = (%ld)\n", __func__, halStatus );
 }
 
 #ifdef WLAN_WAKEUP_EVENTS
@@ -195,7 +195,7 @@ v_BOOL_t hdd_add_wowl_ptrn (hdd_adapter_t *pAdapter, const char * ptrn)
        ptrn[5] != WOWL_INTRA_PTRN_TOKENIZER)
     {
       VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR, 
-          "%s: Malformed pattern string. Skip!", __func__);
+          "%s: Malformed pattern string. Skip!\n", __func__);
       ptrn += len; 
       goto next_ptrn;
     }
@@ -212,7 +212,7 @@ v_BOOL_t hdd_add_wowl_ptrn (hdd_adapter_t *pAdapter, const char * ptrn)
        localPattern.ucPatternMaskSize > WOWL_PTRN_MASK_MAX_SIZE)
     {
       VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR, 
-          "%s: Invalid length specified. Skip!", __func__);
+          "%s: Invalid length specified. Skip!\n", __func__);
       ptrn += len; 
       goto next_ptrn;
     }
@@ -222,7 +222,7 @@ v_BOOL_t hdd_add_wowl_ptrn (hdd_adapter_t *pAdapter, const char * ptrn)
     if(offset >= len || ptrn[offset] != WOWL_INTRA_PTRN_TOKENIZER) 
     {
       VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR, 
-          "%s: Malformed pattern string..skip!", __func__);
+          "%s: Malformed pattern string..skip!\n", __func__);
       ptrn += len; 
       goto next_ptrn;
     }
@@ -232,7 +232,7 @@ v_BOOL_t hdd_add_wowl_ptrn (hdd_adapter_t *pAdapter, const char * ptrn)
     if(offset+1 != len) //offset begins with 0
     {
       VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR, 
-          "%s: Malformed pattern string...skip!", __func__);
+          "%s: Malformed pattern string...skip!\n", __func__);
       ptrn += len; 
       goto next_ptrn;
     }
@@ -425,6 +425,7 @@ v_BOOL_t hdd_add_wowl_ptrn_debugfs(hdd_adapter_t *pAdapter, v_U8_t pattern_idx,
   {
     VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
                "%s: Malformed WoW pattern mask!", __func__);
+
     return VOS_FALSE;
   }
 
@@ -525,13 +526,11 @@ v_BOOL_t hdd_del_wowl_ptrn_debugfs(hdd_adapter_t *pAdapter, v_U8_t pattern_idx)
   @return           : FALSE if any errors encountered
                     : TRUE otherwise
   ===========================================================================*/
-v_BOOL_t hdd_enter_wowl (hdd_adapter_t *pAdapter, v_BOOL_t enable_mp, v_BOOL_t enable_pbm)
+v_BOOL_t hdd_enter_wowl (hdd_adapter_t *pAdapter, v_BOOL_t enable_mp, v_BOOL_t enable_pbm) 
 {
   tSirSmeWowlEnterParams wowParams;
   eHalStatus halStatus;
   tHalHandle hHal = WLAN_HDD_GET_HAL_CTX(pAdapter);
-
-  vos_mem_zero( &wowParams, sizeof( tSirSmeWowlEnterParams ) );
 
   wowParams.ucPatternFilteringEnable = enable_pbm;
   wowParams.ucMagicPktEnable = enable_mp;
@@ -540,14 +539,6 @@ v_BOOL_t hdd_enter_wowl (hdd_adapter_t *pAdapter, v_BOOL_t enable_mp, v_BOOL_t e
     vos_copy_macaddr( (v_MACADDR_t *)&(wowParams.magicPtrn),
                     &(pAdapter->macAddressCurrent) );
   }
-
-#ifdef WLAN_WAKEUP_EVENTS
-  wowParams.ucWoWEAPIDRequestEnable = VOS_TRUE;
-  wowParams.ucWoWEAPOL4WayEnable = VOS_TRUE;
-  wowParams.ucWowNetScanOffloadMatch = VOS_TRUE;
-  wowParams.ucWowGTKRekeyError = VOS_TRUE;
-  wowParams.ucWoWBSSConnLoss = VOS_TRUE;
-#endif // WLAN_WAKEUP_EVENTS
 
   // Request to put Libra into WoWL
   halStatus = sme_EnterWowl( hHal, hdd_wowl_callback, 

@@ -255,7 +255,6 @@ typedef enum eSirResultCodes
     eSIR_SME_BSS_ALREADY_STARTED_OR_JOINED,
     eSIR_SME_LOST_LINK_WITH_PEER_RESULT_CODE,
     eSIR_SME_REFUSED,
-    eSIR_SME_JOIN_DEAUTH_FROM_AP_DURING_ADD_STA,
     eSIR_SME_JOIN_TIMEOUT_RESULT_CODE,
     eSIR_SME_AUTH_TIMEOUT_RESULT_CODE,
     eSIR_SME_ASSOC_TIMEOUT_RESULT_CODE,
@@ -664,6 +663,8 @@ typedef struct sSirSmeStartBssReq
 
     tANI_U8                 txLdpcIniFeatureEnabled;
 
+    tANI_U8                 oxygenNwkIniFeatureEnabled;
+
     tSirRSNie               rsnIE;             // RSN IE to be sent in
                                                // Beacon and Probe
                                                // Response frames
@@ -795,7 +796,13 @@ typedef enum eSirLinkTrafficCheck
 #define SIR_BG_SCAN_RETURN_CACHED_RESULTS              0x0
 #define SIR_BG_SCAN_PURGE_RESUTLS                      0x80
 #define SIR_BG_SCAN_RETURN_FRESH_RESULTS               0x01
+/* [WLAN][SHARP] 2012.04.26 SIR_SCAN_MAX_NUM_SSID 9 -> 10 Start */
+#ifndef SH_WIFI_CUSTOMIZE
 #define SIR_SCAN_MAX_NUM_SSID                          0x09 
+#else /* SH_WIFI_CUSTOMIZE */
+#define SIR_SCAN_MAX_NUM_SSID                          0x0A
+#endif /* SH_WIFI_CUSTOMIZE */
+/* [WLAN][SHARP] 2012.04.26 SIR_SCAN_MAX_NUM_SSID 9 -> 10 End */
 #define SIR_BG_SCAN_RETURN_LFR_CACHED_RESULTS          0x02
 #define SIR_BG_SCAN_PURGE_LFR_RESULTS                  0x40
 
@@ -3433,7 +3440,7 @@ typedef struct sSirUpdateAPWPARSNIEsReq
 } tSirUpdateAPWPARSNIEsReq, *tpSirUpdateAPWPARSNIEsReq;
 
 #ifdef WLAN_FEATURE_ROAM_SCAN_OFFLOAD
-#define SIR_ROAM_MAX_CHANNELS            80
+#define SIR_ROAM_MAX_CHANNELS            NUM_RF_CHANNELS
 #define SIR_ROAM_SCAN_MAX_PB_REQ_SIZE    450
 #define CHANNEL_LIST_STATIC                   1 /* Occupied channel list remains static */
 #define CHANNEL_LIST_DYNAMIC_INIT             2 /* Occupied channel list can be learnt after init */
@@ -4038,7 +4045,6 @@ typedef struct sSirTdlsSendMgmtReq
     tANI_U8             dialog;
     tANI_U16            statusCode;
     tANI_U8             responder;
-    tANI_U32            peerCapability;
     tSirMacAddr         bssid;         // For multi-session, for PE to locate peSession ID
     tSirMacAddr         peerMac;
     tANI_U8             addIe[1];      //Variable lenght. Dont add any field after this.
@@ -4457,8 +4463,6 @@ typedef struct sSirLPHBTcpParamStruct
    v_U16_t      timeout;
    v_U8_t       session;
    tSirMacAddr  gateway_mac;
-   uint16       timePeriodSec; // in seconds
-   uint32       tcpSn;
 } tSirLPHBTcpParamStruct;
 
 typedef struct sSirLPHBTcpFilterStruct
@@ -4503,12 +4507,12 @@ typedef struct sSirLPHBReq
    } params;
 } tSirLPHBReq;
 
-typedef struct sSirLPHBInd
+typedef struct sSirLPHBTimeoutInd
 {
    v_U8_t sessionIdx;
    v_U8_t protocolType; /*TCP or UDP*/
    v_U8_t eventReason;
-} tSirLPHBInd;
+} tSirLPHBTimeoutInd;
 #endif /* FEATURE_WLAN_LPHB */
 
 typedef struct sSirAddPeriodicTxPtrn
@@ -4617,46 +4621,21 @@ typedef struct sSirChAvoidIndType
 } tSirChAvoidIndType;
 #endif /* FEATURE_WLAN_CH_AVOID */
 
-typedef struct sSirRateUpdateInd
+typedef void (*pGetBcnMissRateCB)( tANI_S32 bcnMissRate,
+                                   VOS_STATUS status, void *data);
+
+typedef PACKED_PRE struct PACKED_POST
 {
-    /* 0 implies RA, positive value implies fixed rate, -1 implies ignore this
-     * param.
-     */
-    tANI_S32 ucastDataRate;
+   tANI_U32   msgLen;
+   tANI_U8    bssid[WNI_CFG_BSSID_LEN];
+   void      *callback;
+   void      *data;
+}tSirBcnMissRateReq;
 
-    /* TX flag to differentiate between HT20, HT40 etc */
-    tTxrateinfoflags ucastDataRateTxFlag;
-
-    /* BSSID - Optional. 00-00-00-00-00-00 implies apply to all BCAST STAs */
-    tSirMacAddr bssid;
-
-    /*
-     * 0 implies MCAST RA, positive value implies fixed rate,
-     * -1 implies ignore this param
-     */
-    tANI_S32 reliableMcastDataRate;//unit Mbpsx10
-
-    /* TX flag to differentiate between HT20, HT40 etc */
-    tTxrateinfoflags reliableMcastDataRateTxFlag;
-
-    /*
-     * MCAST(or BCAST) fixed data rate in 2.4 GHz, unit Mbpsx10,
-     * 0 implies ignore
-     */
-    tANI_U32 mcastDataRate24GHz;
-
-    /* TX flag to differentiate between HT20, HT40 etc */
-    tTxrateinfoflags mcastDataRate24GHzTxFlag;
-
-    /*
-     * MCAST(or BCAST) fixed data rate in 5 GHz,
-     * unit Mbpsx10, 0 implies ignore
-     */
-    tANI_U32 mcastDataRate5GHz;
-
-    /* TX flag to differentiate between HT20, HT40 etc */
-    tTxrateinfoflags mcastDataRate5GHzTxFlag;
-
-} tSirRateUpdateInd, *tpSirRateUpdateInd;
+typedef PACKED_PRE struct PACKED_POST
+{
+    pGetBcnMissRateCB callback;
+    void             *data;
+}tSirBcnMissRateInfo;
 
 #endif /* __SIR_API_H */

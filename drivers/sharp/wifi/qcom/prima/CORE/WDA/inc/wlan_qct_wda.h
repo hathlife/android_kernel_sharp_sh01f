@@ -177,8 +177,6 @@ typedef enum
 #else
 #define IS_ADVANCE_TDLS_ENABLE 0
 #endif
-#define IS_HT40_OBSS_SCAN_FEATURE_ENABLE ((WDA_getFwWlanFeatCaps(HT40_OBSS_SCAN)) & (WDI_getHostWlanFeatCaps(HT40_OBSS_SCAN)))
-
 typedef enum {
     MODE_11A        = 0,   /* 11a Mode */
     MODE_11G        = 1,   /* 11b/g Mode */
@@ -237,8 +235,6 @@ typedef enum {
      (pwlan_hal_update_channel)->reg_info_1 &= 0x00ffffff;             \
      (pwlan_hal_update_channel)->reg_info_1 |= ((val&0xff) << 24);     \
      } while(0)
-
-#define WDA_IS_MCAST_FLT_ENABLE_IN_FW (WDA_getFwWlanFeatCaps(WLAN_MCADDR_FLT))
 
 /*--------------------------------------------------------------------------
   Definitions for Data path APIs
@@ -1183,7 +1179,7 @@ tSirRetStatus uMacPostCtrlMsg(void* pSirGlobal, tSirMbMsg* pMb);
 #define WDA_TRIGGER_BATCH_SCAN_RESULT_IND SIR_HAL_TRIGGER_BATCH_SCAN_RESULT_IND
 #endif
 
-#define WDA_RATE_UPDATE_IND         SIR_HAL_RATE_UPDATE_IND
+#define WDA_GET_BCN_MISS_RATE_REQ        SIR_HAL_BCN_MISS_RATE_REQ
 
 tSirRetStatus wdaPostCtrlMsg(tpAniSirGlobal pMac, tSirMsgQ *pMsg);
 

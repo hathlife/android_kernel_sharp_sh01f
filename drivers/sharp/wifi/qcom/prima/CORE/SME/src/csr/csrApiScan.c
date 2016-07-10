@@ -117,6 +117,12 @@ RSSI *cannot* be more than 0xFF or less than 0 for meaningful WLAN operation
 #define CSR_SCAN_IS_OVER_BSS_LIMIT(pMac)  \
    ( (pMac)->scan.nBssLimit <= (csrLLCount(&(pMac)->scan.scanResultList)) )
 
+/* [WLAN][SHARP] 2012.09.01 Remedy for 5Ghz P2P connection problem Start */
+#ifdef SH_WIFI_CUSTOMIZE
+extern tANI_U8 gMoreActiveScan;
+#endif /* SH_WIFI_CUSTOMIZE */
+/* [WLAN][SHARP] 2012.09.01 Remedy for 5Ghz P2P connection problem End */
+
 /* Maximum number of channels per country can be ignored */
 #define MAX_CHANNELS_IGNORE 10
 
@@ -466,10 +472,15 @@ eHalStatus csrQueueScanRequest( tpAniSirGlobal pMac, tSmeCmd *pScanCmd )
 {
     eHalStatus status = eHAL_STATUS_SUCCESS;
 
+/* [WLAN][SHARP] 2013.09.06 Remedy for illegal active scanning during STA/P2P connection Start */
+#ifndef SH_WIFI_CUSTOMIZE
     tANI_BOOLEAN fNoCmdPending;
     tSmeCmd *pQueueScanCmd=NULL;
     tSmeCmd *pSendScanCmd=NULL;
     tANI_U8  nNumChanCombinedConc = 0;
+#endif /* SH_WIFI_CUSTOMIZE */
+/* [WLAN][SHARP] 2013.09.06 Remedy for illegal active scanning during STA/P2P connection End */
+
     if (NULL == pScanCmd)
     {
         smsLog (pMac, LOGE, FL("Scan Req cmd is NULL"));
@@ -484,7 +495,8 @@ eHalStatus csrQueueScanRequest( tpAniSirGlobal pMac, tSmeCmd *pScanCmd )
      * the scan is delaying the time it takes for LFR to find
      * candidates and resulting in disconnects.
      */
-
+/* [WLAN][SHARP] 2013.09.06 Remedy for illegal active scanning during STA/P2P connection Start */
+#ifndef SH_WIFI_CUSTOMIZE
     if(csrIsStaSessionConnected(pMac) &&
        !csrIsP2pSessionConnected(pMac))
     {
@@ -663,6 +675,8 @@ eHalStatus csrQueueScanRequest( tpAniSirGlobal pMac, tSmeCmd *pScanCmd )
         }
     }
     else
+#endif /* SH_WIFI_CUSTOMIZE */
+/* [WLAN][SHARP] 2013.09.06 Remedy for illegal active scanning during STA/P2P connection End */
     {  //No concurrency case
         smsLog( pMac, LOG2, FL("Queuing scan command (reason=%d, roamState=%d"
                 " numOfChannels=%d)"),
@@ -730,6 +744,7 @@ eHalStatus csrScanRequest(tpAniSirGlobal pMac, tANI_U16 sessionId,
     {
         smsLog( pMac, LOGE, FL(" pScanRequest is NULL"));
         VOS_ASSERT(0);
+        return eHAL_STATUS_FAILURE ;
     }
 
     /* During group formation, the P2P client scans for GO with the specific SSID.
@@ -886,7 +901,7 @@ eHalStatus csrScanRequest(tpAniSirGlobal pMac, tANI_U16 sessionId,
                         p11dScanCmd->command = eSmeCommandScan;
                         p11dScanCmd->u.scanCmd.callback = pMac->scan.callback11dScanDone;
                         p11dScanCmd->u.scanCmd.pContext = NULL;
-                        p11dScanCmd->u.scanCmd.scanID = pMac->scan.nextScanID;
+                        p11dScanCmd->u.scanCmd.scanID = pMac->scan.nextScanID++;                
                         scanReq.BSSType = eCSR_BSS_TYPE_ANY;
 
                         if ( csrIs11dSupported(pMac) )
@@ -917,14 +932,6 @@ eHalStatus csrScanRequest(tpAniSirGlobal pMac, tANI_U16 sessionId,
 
                             scanReq.maxChnTimeBtc = pMac->roam.configParam.nActiveMaxChnTimeBtc;
                             scanReq.minChnTimeBtc = pMac->roam.configParam.nActiveMinChnTimeBtc;
-                        }
-                        if (pMac->roam.configParam.nInitialDwellTime)
-                        {
-                            scanReq.maxChnTime =
-                                     pMac->roam.configParam.nInitialDwellTime;
-                            smsLog(pMac, LOG1, FL("11d scan, updating"
-                                   "dwell time for first scan %u"),
-                                    scanReq.maxChnTime);
                         }
 
                         status = csrScanCopyRequest(pMac, &p11dScanCmd->u.scanCmd.u.scanRequest, &scanReq);
@@ -974,16 +981,6 @@ eHalStatus csrScanRequest(tpAniSirGlobal pMac, tANI_U16 sessionId,
                 {
                     smsLog( pMac, LOG1, FL("Scanning only 2G Channels during first scan"));
                     csrScan2GOnyRequest(pMac, pScanCmd, pScanRequest);
-                }
-
-                if (pMac->roam.configParam.nInitialDwellTime)
-                {
-                    pScanRequest->maxChnTime =
-                            pMac->roam.configParam.nInitialDwellTime;
-                    pMac->roam.configParam.nInitialDwellTime = 0;
-                    smsLog(pMac, LOG1,
-                                 FL("updating dwell time for first scan %u"),
-                                 pScanRequest->maxChnTime);
                 }
 
                 status = csrScanCopyRequest(pMac, &pScanCmd->u.scanCmd.u.scanRequest, pScanRequest);
@@ -2443,12 +2440,15 @@ tANI_U8 csrScanFlushDenied(tpAniSirGlobal pMac)
 eHalStatus csrScanFlushResult(tpAniSirGlobal pMac)
 {
     tANI_U8 isFlushDenied = csrScanFlushDenied(pMac);
+    eHalStatus status = eHAL_STATUS_SUCCESS;
     if (isFlushDenied) {
         smsLog(pMac, LOGW, "%s: scan flush denied in roam state %d",
                 __func__, isFlushDenied);
         return eHAL_STATUS_FAILURE;
     }
-    return ( csrLLScanPurgeResult(pMac, &pMac->scan.scanResultList) );
+    csrLLScanPurgeResult( pMac, &pMac->scan.tempScanResults );
+    csrLLScanPurgeResult( pMac, &pMac->scan.scanResultList );
+    return( status );
 }
 
 eHalStatus csrScanFlushSelectiveResult(tpAniSirGlobal pMac, v_BOOL_t flushP2P)
@@ -2485,7 +2485,7 @@ eHalStatus csrScanFlushSelectiveResult(tpAniSirGlobal pMac, v_BOOL_t flushP2P)
  * csrCheck11dChannel
  *
  *FUNCTION:
- * This function is called from csrScanFilter11dResult function and
+ * This function is called from csrScanFilterResults function and
  * compare channel number with given channel list.
  *
  *LOGIC:
@@ -2520,7 +2520,7 @@ eHalStatus csrCheck11dChannel(tANI_U8 channelId, tANI_U8 *pChannelList, tANI_U32
 }
 
 /**
- * csrScanFilter11dResult
+ * csrScanFilterResults
  *
  *FUNCTION:
  * This function is called from csrApplyCountryInformation function and
@@ -2541,7 +2541,7 @@ eHalStatus csrCheck11dChannel(tANI_U8 channelId, tANI_U8 *pChannelList, tANI_U32
  * @return Status
  */
 
-eHalStatus csrScanFilter11dResult(tpAniSirGlobal pMac)
+eHalStatus csrScanFilterResults(tpAniSirGlobal pMac)
 {
     eHalStatus status = eHAL_STATUS_SUCCESS;
     tListElem *pEntry,*pTempEntry;
@@ -2559,10 +2559,10 @@ eHalStatus csrScanFilter11dResult(tpAniSirGlobal pMac)
     while( pEntry )
     {
         pBssDesc = GET_BASE_ADDR( pEntry, tCsrScanResult, Link );
-        pTempEntry = csrLLNext( &pMac->scan.scanResultList, pEntry, 
+        pTempEntry = csrLLNext( &pMac->scan.scanResultList, pEntry,
                                                             LL_ACCESS_LOCK );
         if(csrCheck11dChannel(pBssDesc->Result.BssDescriptor.channelId,
-                                              pMac->roam.validChannelList, len))
+                              pMac->roam.validChannelList, len))
         {
             /* Remove Scan result which does not have 11d channel */
             if( csrLLRemoveEntry( &pMac->scan.scanResultList, pEntry,
@@ -2570,6 +2570,35 @@ eHalStatus csrScanFilter11dResult(tpAniSirGlobal pMac)
             {
                 csrFreeScanResultEntry( pMac, pBssDesc );
             }
+        }
+        else
+        {
+            smsLog( pMac, LOG1, FL("%d is a Valid channel"),
+                    pBssDesc->Result.BssDescriptor.channelId);
+        }
+        pEntry = pTempEntry;
+    }
+
+    pEntry = csrLLPeekHead( &pMac->scan.tempScanResults, LL_ACCESS_LOCK );
+    while( pEntry )
+    {
+        pBssDesc = GET_BASE_ADDR( pEntry, tCsrScanResult, Link );
+        pTempEntry = csrLLNext( &pMac->scan.tempScanResults, pEntry,
+                                                            LL_ACCESS_LOCK );
+        if(csrCheck11dChannel(pBssDesc->Result.BssDescriptor.channelId,
+                              pMac->roam.validChannelList, len))
+        {
+            /* Remove Scan result which does not have 11d channel */
+            if( csrLLRemoveEntry( &pMac->scan.tempScanResults, pEntry,
+                        LL_ACCESS_LOCK ))
+            {
+                csrFreeScanResultEntry( pMac, pBssDesc );
+            }
+        }
+        else
+        {
+            smsLog( pMac, LOG1, FL("%d is a Valid channel"),
+                    pBssDesc->Result.BssDescriptor.channelId);
         }
         pEntry = pTempEntry;
     }
@@ -4244,7 +4273,7 @@ tANI_BOOLEAN csrLearnCountryInformation( tpAniSirGlobal pMac, tSirBssDescription
             * which does not have channel number belong to 11d
             * channel list
             */
-            csrScanFilter11dResult(pMac);
+            csrScanFilterResults(pMac);
         }
 #endif
         fRet = eANI_BOOLEAN_TRUE;
@@ -4484,6 +4513,27 @@ tANI_BOOLEAN csrScanComplete( tpAniSirGlobal pMac, tSirSmeScanRsp *pScanRsp )
                 //pMac->scan.tempScanResults is not empty meaning the scan found something
                 //This check only valid here because csrSaveScanresults is not yet called
                 fSuccess = (!csrLLIsListEmpty(&pMac->scan.tempScanResults, LL_ACCESS_LOCK));
+            }
+            if (pCommand->u.scanCmd.abortScanDueToBandChange)
+            {
+                /*
+                 * Scan aborted due to band change
+                 * The scan results need to be flushed
+                 */
+                if (pCommand->u.scanCmd.callback
+                    != pMac->scan.callback11dScanDone)
+                {
+                    smsLog(pMac, LOG1, FL("Filtering the scan results as the "
+                                          "results may belong to wrong band"));
+                    csrScanFilterResults(pMac);
+                }
+                else
+                {
+                    smsLog(pMac, LOG1, FL("11d_scan_done will flush the scan"
+                                          " results"));
+                }
+                pCommand->u.scanCmd.abortScanDueToBandChange
+                    = eANI_BOOLEAN_FALSE;
             }
             csrSaveScanResults(pMac, pCommand->u.scanCmd.reason);
 
@@ -5077,6 +5127,8 @@ static tANI_BOOLEAN csrScanProcessScanResults( tpAniSirGlobal pMac, tSmeCmd *pCo
          * the scan is delaying the time it takes for LFR to find
          * candidates and resulting in disconnects.
          */
+/* [WLAN][SHARP] 2013.09.06 Remedy for illegal active scanning during STA/P2P connection Start */
+#ifndef SH_WIFI_CUSTOMIZE
         if ( (csrIsStaSessionConnected(pMac) &&
 #ifdef FEATURE_WLAN_LFR
                     (csrIsConcurrentInfraConnected(pMac) ||
@@ -5097,6 +5149,12 @@ static tANI_BOOLEAN csrScanProcessScanResults( tpAniSirGlobal pMac, tSmeCmd *pCo
             /* minimum timer granularity is 10ms */
             vos_timer_start(&pMac->scan.hTimerStaApConcTimer, 10);
         }
+#else /* SH_WIFI_CUSTOMIZE */
+        /* if no connected sessions present then initiate next scan command immediately */
+        /* minimum timer granularity is 10ms */
+        vos_timer_start(&pMac->scan.hTimerStaApConcTimer, 10 * 1000);
+#endif /* SH_WIFI_CUSTOMIZE */
+/* [WLAN][SHARP] 2013.09.06 Remedy for illegal active scanning during STA/P2P connection End */
     }
 #endif
     return (fRet);
@@ -5153,7 +5211,17 @@ eHalStatus csrScanSmeScanResponse( tpAniSirGlobal pMac, void *pMsgBuf )
                  * by default considereing it to be success
                  */
                 scanStatus = eSIR_SME_SUCCESS;
+/* [WLAN][SHARP] 2012.09.01 Remedy for 5Ghz P2P connection problem Start */
+#ifndef SH_WIFI_CUSTOMIZE
                 csrScanAgeResults(pMac, pScanChnInfo);
+#else /* SH_WIFI_CUSTOMIZE */
+                if(gMoreActiveScan == 0)
+                {
+                    smsLog(pMac, LOG1, "%s AgingCount Down and remove BSS", __FUNCTION__ ); 
+                    csrScanAgeResults(pMac, pScanChnInfo);
+                }
+#endif /* SH_WIFI_CUSTOMIZE */
+/* [WLAN][SHARP] 2012.09.01 Remedy for 5Ghz P2P connection problem End */
                 break;
             case eCsrScanForCapsChange:
                 csrScanProcessScanResults( pMac, pCommand, pScanRsp, &fRemoveCommand );
@@ -5548,7 +5616,13 @@ eHalStatus csrSendMBScanReq( tpAniSirGlobal pMac, tANI_U16 sessionId,
 
         for(i = 0; i < pMsg->channelList.numChannels; i++)
         {
+/* [WLAN][SHARP] 2013.09.25 Correction of log output Start */
+#ifndef SH_WIFI_CUSTOMIZE
             smsLog(pMac, LOG3, FL("channelNumber[%d]= %d"), i, pMsg->channelList.channelNumber[i]);
+#else /* SH_WIFI_CUSTOMIZE */
+            smsLog(pMac, LOG1, FL("channelNumber[%d]= %d"), i, pMsg->channelList.channelNumber[i]);
+#endif /* SH_WIFI_CUSTOMIZE */
+/* [WLAN][SHARP] 2013.09.25 Correction of log output End */
         }
 
         if(HAL_STATUS_SUCCESS(status))
@@ -5993,7 +6067,6 @@ eHalStatus csrScanCopyRequest(tpAniSirGlobal pMac, tCsrScanRequest *pDstReq, tCs
     tANI_U32 len = sizeof(pMac->roam.validChannelList);
     tANI_U32 index = 0;
     tANI_U32 new_index = 0;
-    eNVChannelEnabledType NVchannel_state;
 
     do
     {
@@ -6049,15 +6122,9 @@ eHalStatus csrScanCopyRequest(tpAniSirGlobal pMac, tCsrScanRequest *pDstReq, tCs
                     {
                        for ( index = 0; index < pSrcReq->ChannelInfo.numOfChannels ; index++ )
                        {
-                          NVchannel_state = vos_nv_getChannelEnabledState(
-                                  pSrcReq->ChannelInfo.ChannelList[index]);
-                          if ((NV_CHANNEL_ENABLE == NVchannel_state) ||
-                                  (NV_CHANNEL_DFS == NVchannel_state))
-                          {
-                             pDstReq->ChannelInfo.ChannelList[new_index] =
-                                 pSrcReq->ChannelInfo.ChannelList[index];
-                             new_index++;
-                          }
+                          pDstReq->ChannelInfo.ChannelList[new_index] =
+                                             pSrcReq->ChannelInfo.ChannelList[index];
+                          new_index++;
                        }
                        pDstReq->ChannelInfo.numOfChannels = new_index;
                     }
@@ -6065,42 +6132,7 @@ eHalStatus csrScanCopyRequest(tpAniSirGlobal pMac, tCsrScanRequest *pDstReq, tCs
                     {
                         new_index = 0;
                         pMac->roam.numValidChannels = len;
-
-                     /* Since in CsrScanRequest,value of pMac->scan.nextScanID
-                      * is incremented before calling CsrScanCopyRequest, as a
-                      * result pMac->scan.nextScanID is equal to ONE for the
-                      * first scan.
-                      */
-                     if (pMac->roam.configParam.initialScanSkipDFSCh &&
-                              1 == pMac->scan.nextScanID )
-                     {
-                       smsLog(pMac, LOG1,
-                              FL("Initial scan, scan only non-DFS channels"));
-
-                       for (index = 0; index < pSrcReq->ChannelInfo.
-                                             numOfChannels ; index++ )
-                      {
-                        if((csrRoamIsValidChannel(pMac, pSrcReq->ChannelInfo.
-                                                  ChannelList[index])))
-                        {
-                        /*Skiipping DFS Channels for 1st scan */
-                          if(NV_CHANNEL_DFS ==
-                             vos_nv_getChannelEnabledState(pSrcReq->ChannelInfo.
-                             ChannelList[index]))
-                                   continue ;
-
-                          pDstReq->ChannelInfo.ChannelList[new_index] =
-                                     pSrcReq->ChannelInfo.ChannelList[index];
-                          new_index++;
-
-                         }
-                       }
-                       pMac->roam.configParam.initialScanSkipDFSCh = 0;
-                     }
-                     else
-                     {
-                       for ( index = 0; index < pSrcReq->ChannelInfo.
-                                             numOfChannels ; index++ )
+                        for ( index = 0; index < pSrcReq->ChannelInfo.numOfChannels ; index++ )
                         {
                             /* Allow scan on valid channels only.
                              * If it is p2p scan and valid channel list doesnt contain 
@@ -6145,7 +6177,6 @@ eHalStatus csrScanCopyRequest(tpAniSirGlobal pMac, tCsrScanRequest *pDstReq, tCs
                                 new_index++;
                             }
                         }
-                      }
                         pDstReq->ChannelInfo.numOfChannels = new_index;
 #ifdef FEATURE_WLAN_LFR
                         if ((eCSR_SCAN_HO_BG_SCAN == pSrcReq->requestType) &&
@@ -6313,6 +6344,8 @@ static void csrStaApConcTimerHandler(void *pv)
 
     if ( NULL != ( pEntry = csrLLPeekHead( &pMac->scan.scanCmdPendingList, LL_ACCESS_NOLOCK) ) )
     {    
+/* [WLAN][SHARP] 2013.09.06 Remedy for illegal active scanning during STA/P2P connection Start */
+#ifndef SH_WIFI_CUSTOMIZE
         tCsrScanRequest scanReq;
         tSmeCmd *pSendScanCmd = NULL;
         tANI_U8 numChn = 0;
@@ -6321,6 +6354,11 @@ static void csrStaApConcTimerHandler(void *pv)
         tCsrChannelInfo *pChnInfo = &scanReq.ChannelInfo;
         tANI_U8    channelToScan[WNI_CFG_VALID_CHANNEL_LIST_LEN];
         eHalStatus status;
+#else /* SH_WIFI_CUSTOMIZE */
+        tSmeCmd *pSendScanCmd = NULL;
+        tANI_U8 numChn = 0;
+#endif /* SH_WIFI_CUSTOMIZE */
+/* [WLAN][SHARP] 2013.09.06 Remedy for illegal active scanning during STA/P2P connection End */
        
         pScanCmd = GET_BASE_ADDR( pEntry, tSmeCmd, Link );
         numChn = pScanCmd->u.scanCmd.u.scanRequest.ChannelInfo.numOfChannels;
@@ -6340,7 +6378,8 @@ static void csrStaApConcTimerHandler(void *pv)
          * the scan is delaying the time it takes for LFR to find
          * candidates and resulting in disconnects.
          */
-
+/* [WLAN][SHARP] 2013.09.06 Remedy for illegal active scanning during STA/P2P connection Start */
+#ifndef SH_WIFI_CUSTOMIZE
         if((csrIsStaSessionConnected(pMac) &&
            !csrIsP2pSessionConnected(pMac)))
         {
@@ -6421,6 +6460,8 @@ static void csrStaApConcTimerHandler(void *pv)
              csrScanFreeRequest(pMac, &scanReq);
         }
         else
+#endif /* SH_WIFI_CUSTOMIZE */
+/* [WLAN][SHARP] 2013.09.06 Remedy for illegal active scanning during STA/P2P connection End */
         {
              /* no active connected session present or numChn == 1
               * scan all remaining channels */
@@ -7192,7 +7233,7 @@ eHalStatus csrScanForSSID(tpAniSirGlobal pMac, tANI_U32 sessionId, tCsrRoamProfi
             {
                 pScanCmd->u.scanCmd.u.scanRequest.p2pSearch = 1;
             }
-            if(pProfile->nAddIEScanLength)
+            if(pProfile->pAddIEScan)
             {
                 status = palAllocateMemory(pMac->hHdd,
                                 (void **)&pScanCmd->u.scanCmd.u.scanRequest.pIEField,
@@ -7200,7 +7241,7 @@ eHalStatus csrScanForSSID(tpAniSirGlobal pMac, tANI_U32 sessionId, tCsrRoamProfi
                 palZeroMemory(pMac->hHdd, pScanCmd->u.scanCmd.u.scanRequest.pIEField, pProfile->nAddIEScanLength);
                 if(HAL_STATUS_SUCCESS(status))
                 {
-                    palCopyMemory(pMac->hHdd, pScanCmd->u.scanCmd.u.scanRequest.pIEField, pProfile->addIEScan, pProfile->nAddIEScanLength);
+                    palCopyMemory(pMac->hHdd, pScanCmd->u.scanCmd.u.scanRequest.pIEField, pProfile->pAddIEScan, pProfile->nAddIEScanLength);
                     pScanCmd->u.scanCmd.u.scanRequest.uIEFieldLen = pProfile->nAddIEScanLength;
                 }
                 else
@@ -7449,12 +7490,6 @@ void csrSetCfgValidChannelList( tpAniSirGlobal pMac, tANI_U8 *pChannelList, tANI
     tANI_U32 dataLen = sizeof( tANI_U8 ) * NumChannels;
     eHalStatus status;
 
-    VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO,
-                "%s: dump valid channel list(NumChannels(%d))",
-                __func__,NumChannels);
-    VOS_TRACE_HEX_DUMP(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO,
-                       pChannelList, NumChannels);
-
     ccmCfgSetStr(pMac, WNI_CFG_VALID_CHANNEL_LIST, pChannelList, dataLen, NULL, eANI_BOOLEAN_FALSE);
 #ifdef QCA_WIFI_2_0
     if (pMac->fScanOffload)
@@ -7645,11 +7680,6 @@ void csrSetCfgScanControlList( tpAniSirGlobal pMac, tANI_U8 *countryCode, tCsrCh
                        
             }            
 
-            VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO,
-                      "%s: dump scan control list",__func__);
-            VOS_TRACE_HEX_DUMP(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO,
-                               pControlList, len);
-
             ccmCfgSetStr(pMac, WNI_CFG_SCAN_CONTROL_LIST, pControlList, len, NULL, eANI_BOOLEAN_FALSE);
         }//Successfully getting scan control list
         palFreeMemory(pMac->hHdd, pControlList);
@@ -7784,6 +7814,11 @@ eHalStatus csrScanAbortMacScan(tpAniSirGlobal pMac, eCsrAbortReason reason)
             status = palAllocateMemory(pMac->hHdd, (void **)&pMsg, msgLen);
             if(HAL_STATUS_SUCCESS(status))
             {
+                if(reason == eCSR_SCAN_ABORT_DUE_TO_BAND_CHANGE)
+                {
+                    pCommand->u.scanCmd.abortScanDueToBandChange
+                        = eANI_BOOLEAN_TRUE;
+                }
                 palZeroMemory(pMac->hHdd, (void *)pMsg, msgLen);
                 pMsg->type = pal_cpu_to_be16((tANI_U16)eWNI_SME_SCAN_ABORT_IND);
                 pMsg->msgLen = pal_cpu_to_be16(msgLen);
@@ -7977,22 +8012,7 @@ eHalStatus csrScanSavePreferredNetworkFound(tpAniSirGlobal pMac,
    }
    else
    {
-      /**
-        * If Probe Responce received in PNO indication does not
-        * contain DSParam IE or HT Info IE then add dummy channel
-        * to the received BSS info so that Scan result received as
-        * a part of PNO is updated to the supplicant. Specially
-        * applicable in case of AP configured in 11A only mode.
-        */
-      if ((pMac->roam.configParam.bandCapability == eCSR_BAND_ALL) ||
-          (pMac->roam.configParam.bandCapability == eCSR_BAND_24))
-      {
-          pBssDescr->channelId = 1;
-      }
-      else if(pMac->roam.configParam.bandCapability == eCSR_BAND_5G)
-      {
-         pBssDescr->channelId = 36;
-      }
+      pBssDescr->channelId = pParsedFrame->channelNumber;
    }
 
    if ((pBssDescr->channelId > 0) && (pBssDescr->channelId < 15))
