@@ -452,10 +452,12 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		pipe = mdss_mdp_pipe_alloc(mixer, pipe_type);
 
 		/* VIG pipes can also support RGB format */
-		if ((req->pipe_type == PIPE_TYPE_AUTO) && !pipe &&
+               if ((req->pipe_type == PIPE_TYPE_AUTO) && !pipe &&
 			(pipe_type == MDSS_MDP_PIPE_TYPE_RGB)) {
+			pipe_type = MDSS_MDP_PIPE_TYPE_VIG;
 			pipe = mdss_mdp_pipe_alloc(mixer, pipe_type);
 		}
+
 
 		if (pipe == NULL) {
 			pr_err("error allocating pipe\n");
@@ -2345,6 +2347,8 @@ static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
 	}
 	return ret;
 }
+
+
 
 static int mdss_fb_get_hw_caps(struct msm_fb_data_type *mfd,
 		struct mdss_hw_caps *caps)
