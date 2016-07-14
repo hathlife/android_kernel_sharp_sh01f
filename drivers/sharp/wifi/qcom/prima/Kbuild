@@ -10,39 +10,7 @@ ifeq ($(KERNEL_BUILD),1)
 	# These are provided in Android-based builds
 	# Need to explicitly define for Kernel-based builds
 	MODNAME := wlan
-
-#[WLAN][SHARP] Customize Start
-#              2013.07.10 for Static link mod
-#              2013.09.06 Disable Legacy Fast Roaming
-ifeq ($(CONFIG_PRONTO_WLAN),)
 	WLAN_ROOT := drivers/sharp/wifi/qcom/prima
-else
-	WLAN_ROOT := drivers/sharp/wifi/qcom/prima
-
-	#Flag to enable BlueTooth AMP feature
-	CONFIG_PRIMA_WLAN_BTAMP := n
-
-	#Flag to enable Legacy Fast Roaming(LFR)
-	#CONFIG_PRIMA_WLAN_LFR := y
-	CONFIG_PRIMA_WLAN_LFR := n
-
-	#JB kernel has PMKSA patches, hence enabling this flag
-	CONFIG_PRIMA_WLAN_OKC := y
-
-	# JB kernel has CPU enablement patches, so enable
-	CONFIG_PRIMA_WLAN_11AC_HIGH_TP := y
-
-	#Flag to enable TDLS feature
-	CONFIG_QCOM_TDLS := y
-
-	#Flag to enable Fast Transition (11r) feature
-	CONFIG_QCOM_VOWIFI_11R := y
-
-	#Flag to enable Protected Managment Frames (11w) feature
-	CONFIG_WLAN_FEATURE_11W := y
-
-endif
-#[WLAN][SHARP] Customize End
 endif
 
 ifeq ($(KERNEL_BUILD), 0)
@@ -52,12 +20,8 @@ ifeq ($(KERNEL_BUILD), 0)
 	#Flag to enable BlueTooth AMP feature
 	CONFIG_PRIMA_WLAN_BTAMP := n
 
-#[WLAN][SHARP] Customize 2013.09.06 Disable Legacy Fast Roaming Start
 	#Flag to enable Legacy Fast Roaming(LFR)
-	#CONFIG_PRIMA_WLAN_LFR := y
-	CONFIG_PRIMA_WLAN_LFR := n
-#[WLAN][SHARP] Customize 2013.09.06 Disable Legacy Fast Roaming End
-
+	CONFIG_PRIMA_WLAN_LFR := y
 
 	#JB kernel has PMKSA patches, hence enabling this flag
 	CONFIG_PRIMA_WLAN_OKC := y
@@ -76,11 +40,9 @@ ifeq ($(KERNEL_BUILD), 0)
 	CONFIG_WLAN_FEATURE_11W := y
 	endif
 
-#[WLAN][SHARP] Customize 2014.04.30 Disable Linux Regulatory implementation Start
-#	#Flag to enable new Linux Regulatory implementation
-#	CONFIG_ENABLE_LINUX_REG := y
-#[WLAN][SHARP] Customize 2014.04.30 Disable Linux Regulatory implementation End
-	
+	#Flag to enable new Linux Regulatory implementation
+	CONFIG_ENABLE_LINUX_REG := y
+
 endif
 
 # To enable CCX upload, dependent config
@@ -408,7 +370,8 @@ TL_INC := 	-I$(WLAN_ROOT)/$(TL_INC_DIR) \
 
 TL_OBJS := 	$(TL_SRC_DIR)/wlan_qct_tl.o \
 		$(TL_SRC_DIR)/wlan_qct_tl_ba.o \
-		$(TL_SRC_DIR)/wlan_qct_tl_hosupport.o
+		$(TL_SRC_DIR)/wlan_qct_tl_hosupport.o \
+               $(TL_SRC_DIR)/wlan_qct_tl_trace.o
 
 ############ VOSS ############
 VOSS_DIR :=	CORE/VOSS
@@ -565,6 +528,7 @@ CDEFINES :=	-DANI_BUS_TYPE_PLATFORM=1 \
 		-DFEATURE_OEM_DATA_SUPPORT\
 		-DSOFTAP_CHANNEL_RANGE \
 		-DWLAN_AP_STA_CONCURRENCY \
+		-DFEATURE_WLAN_SCAN_PNO \
 		-DWLAN_FEATURE_PACKET_FILTERING \
 		-DWLAN_FEATURE_VOWIFI \
 		-DWLAN_FEATURE_11AC \
@@ -575,19 +539,19 @@ CDEFINES :=	-DANI_BUS_TYPE_PLATFORM=1 \
 		-DWLAN_ACTIVEMODE_OFFLOAD_FEATURE \
 		-DWLAN_FEATURE_HOLD_RX_WAKELOCK \
 		-DWLAN_SOFTAP_VSTA_FEATURE \
+		-DWLAN_FEATURE_ROAM_SCAN_OFFLOAD \
 		-DWLAN_FEATURE_GTK_OFFLOAD \
 		-DWLAN_WAKEUP_EVENTS \
 	        -DWLAN_KD_READY_NOTIFIER \
 		-DFEATURE_WLAN_BATCH_SCAN \
 		-DFEATURE_WLAN_LPHB \
+                -DFEATURE_WLAN_CH144 \
                 -DWLAN_BUG_ON_SKB_ERROR \
-                -DWLAN_DXE_LOW_RESOURCE_TIMER
-
-#	SHARP customize:
-#	remove -DWLAN_FEATURE_ROAM_SCAN_OFFLOAD
-#	remove -DFEATURE_WLAN_SCAN_PNO
-#	remove -DFEATURE_WLAN_CH144
-#	remove -DWLAN_LOGGING_SOCK_SVC_ENABLE
+                -DWLAN_DXE_LOW_RESOURCE_TIMER \
+		-DWLAN_FEATURE_RELIABLE_MCAST \
+		-DWLAN_NL80211_TESTMODE \
+		-DFEATURE_WLAN_LPHB \
+                -DWLAN_LOGGING_SOCK_SVC_ENABLE
 
 ifneq ($(CONFIG_PRONTO_WLAN),)
 CDEFINES += -DWCN_PRONTO
@@ -672,10 +636,6 @@ ifeq ($(PANIC_ON_BUG),1)
 CDEFINES += -DPANIC_ON_BUG
 endif
 
-# [WLAN][SHARP] 2012.02.17 enable SH Customize Start
-CDEFINES += -DSH_WIFI_CUSTOMIZE
-# [WLAN][SHARP] 2012.02.17 enable SH Customize End
-
 ifeq ($(RE_ENABLE_WIFI_ON_WDI_TIMEOUT),1)
 CDEFINES += -DWDI_RE_ENABLE_WIFI_ON_WDI_TIMEOUT
 endif
@@ -699,18 +659,7 @@ EXTRA_CFLAGS += -Wno-maybe-uninitialized -Wno-unused-function
 
 KBUILD_CPPFLAGS += $(CDEFINES)
 
-
-#[WLAN][SHARP] Customize Start
-#              2013.07.10 for Static link mod
-#              2013.08.05 Delete undefined processing of CONFIG_PRONTO_WLAN
-#              2014.03.07 Mod for Dynamic link
-
 # Module information used by KBuild framework
-ifneq ($(CONFIG_PRONTO_WLAN),)
 obj-$(CONFIG_PRIMA_WLAN) += $(MODNAME).o
 obj-$(CONFIG_PRONTO_WLAN) += $(MODNAME).o
 $(MODNAME)-y := $(OBJS)
-endif
-
-EXTRA_CFLAGS += -D__KERNEL__
-#[WLAN][SHARP] Customize End

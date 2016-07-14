@@ -460,8 +460,6 @@ typedef enum
 
   WDI_UPDATE_CHAN_REQ                           = 88,
 
-  WDI_GET_BCN_MISS_RATE_REQ                     = 89,
-
   WDI_MAX_REQ,
 
   /*Send a suspend Indication down to HAL*/
@@ -490,6 +488,9 @@ typedef enum
 
   /*Send stop batch scan indication to FW*/
   WDI_TRIGGER_BATCH_SCAN_RESULT_IND,
+
+  /* Send Rate Update Indication */
+  WDI_RATE_UPDATE_IND,
 
   /*Keep adding the indications to the max request
     such that we keep them sepparate */
@@ -758,7 +759,6 @@ typedef enum
 
   WDI_UPDATE_CHAN_RESP                          = 87,
 
-  WDI_GET_BCN_MISS_RATE_RSP                     = 88,
   /*-------------------------------------------------------------------------
     Indications
      !! Keep these last in the enum if possible
@@ -810,7 +810,7 @@ typedef enum
   WDI_HAL_TDLS_IND                     = WDI_HAL_IND_MIN + 13,
 
   /* LPHB timeout indication */
-  WDI_HAL_LPHB_WAIT_TIMEOUT_IND        = WDI_HAL_IND_MIN + 14,
+  WDI_HAL_LPHB_IND                     = WDI_HAL_IND_MIN + 14,
 
   /* IBSS Peer Inactivity Indication from FW to Host */
   WDI_HAL_IBSS_PEER_INACTIVITY_IND     = WDI_HAL_IND_MIN + 15,
@@ -822,10 +822,6 @@ typedef enum
   WDI_BATCHSCAN_RESULT_IND           =  WDI_HAL_IND_MIN + 17,
 
   WDI_HAL_CH_AVOID_IND                 = WDI_HAL_IND_MIN + 18,
-
-  /* print register values indication from FW to Host */
-  WDI_PRINT_REG_INFO_IND               = WDI_HAL_IND_MIN + 19,
-
   WDI_MAX_RESP
 }WDI_ResponseEnumType; 
 
@@ -1161,6 +1157,13 @@ typedef struct
 
   /* enable/disable SSR on WDI timeout */
   wpt_boolean                 bEnableSSR;
+
+  /* timestamp derived from msm arch counter. */
+  /*timestamp when we start response timer*/
+  wpt_uint64                  uArchTimeStampRspTmrStart;
+
+  /*timestamp when we get response timer event*/
+  wpt_uint64                  uArchTimeStampRspTmrExp;
 }WDI_ControlBlockType; 
 
 
@@ -2817,6 +2820,22 @@ WDI_Status WDI_ProcessLPHBConfReq
 );
 #endif /* FEATURE_WLAN_LPHB */
 
+/**
+ @brief WDI_ProcessUpdateChannelParamsReq -
+    Send update channel request to FW
+
+ @param  pWDICtx : wdi context
+         pEventData : indication data
+
+ @see
+ @return success or failure
+*/
+WDI_Status WDI_ProcessUpdateChannelParamsReq
+(
+  WDI_ControlBlockType*  pWDICtx,
+  WDI_EventInfoType*     pEventData
+);
+
 #ifdef FEATURE_WLAN_BATCH_SCAN
 /**
  @brief WDI_ProcessSetBatchScanReq -
@@ -4467,7 +4486,7 @@ WDI_ProcessTxPerHitInd
 
 #ifdef FEATURE_WLAN_LPHB
 /**
- @brief WDI_ProcessLphbWaitTimeoutInd -
+ @brief WDI_ProcessLphbInd -
     This function will be invoked when FW detects low power
     heart beat failure
 
@@ -4478,7 +4497,7 @@ WDI_ProcessTxPerHitInd
  @return Result of the function call
 */
 WDI_Status
-WDI_ProcessLphbWaitTimeoutInd
+WDI_ProcessLphbInd
 (
   WDI_ControlBlockType*  pWDICtx,
   WDI_EventInfoType*     pEventData
@@ -5616,20 +5635,6 @@ WDI_Status WDI_ProcessSetBatchScanRsp
   WDI_EventInfoType*     pEventData
 );
 
-WDI_Status
-WDI_ProcessGetBcnMissRateReq
-(
-  WDI_ControlBlockType*  pWDICtx,
-  WDI_EventInfoType*     pEventData
-);
-
-WDI_Status
-WDI_ProcessGetBcnMissRateRsp
-(
-  WDI_ControlBlockType*  pWDICtx,
-  WDI_EventInfoType*     pEventData
-);
-
 /**
  @brief Process batch scan response from FW
 
@@ -5667,19 +5672,19 @@ WDI_ProcessChAvoidInd
 #endif /* FEATURE_WLAN_CH_AVOID */
 
 /**
- @brief v -
+ @brief Process Rate Update Indication and post it to HAL
 
+ @param  pWDICtx:    pointer to the WLAN DAL context
+         pEventData: pointer to the event information structure
 
- @param  pWDICtx : wdi context
-         pEventData : indication data
  @see
  @return Result of the function call
 */
 WDI_Status
-WDI_printRegInfo
+WDI_ProcessRateUpdateInd
 (
-  WDI_ControlBlockType*  pWDICtx,
-  WDI_EventInfoType*     pEventData
+    WDI_ControlBlockType*  pWDICtx,
+    WDI_EventInfoType*     pEventData
 );
 
 #endif /*WLAN_QCT_WDI_I_H*/

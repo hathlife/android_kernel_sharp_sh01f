@@ -562,8 +562,8 @@ int hdd_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
    ++pAdapter->hdd_stats.hddTxRxStats.txXmitCalled;
 
-   if (unlikely(netif_queue_stopped(dev))) {
-       VOS_TRACE( VOS_MODULE_ID_HDD_DATA, VOS_TRACE_LEVEL_ERROR,
+   if (unlikely(netif_subqueue_stopped(dev, skb))) {
+       VOS_TRACE( VOS_MODULE_ID_HDD_DATA, VOS_TRACE_LEVEL_WARN,
                   "%s is called when netif TX %d is disabled",
                   __func__, skb->queue_mapping);
        return NETDEV_TX_BUSY;
@@ -585,7 +585,7 @@ int hdd_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
       }
       else if (STAId == HDD_WLAN_INVALID_STA_ID)
       {
-         VOS_TRACE( VOS_MODULE_ID_HDD_DATA, VOS_TRACE_LEVEL_INFO,
+         VOS_TRACE( VOS_MODULE_ID_HDD_DATA, VOS_TRACE_LEVEL_WARN,
                     "%s: Received Unicast frame with invalid staID", __func__);
          ++pAdapter->stats.tx_dropped;
          ++pAdapter->hdd_stats.hddTxRxStats.txXmitDropped;
@@ -622,8 +622,9 @@ int hdd_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
             * if it is in the mainline code and if the log level is enabled by someone for debugging
            VOS_TRACE( VOS_MODULE_ID_HDD_DATA, VOS_TRACE_LEVEL_INFO,"%s:Queue is Filling up.Inform TL again about pending packets", __func__);*/
 
-      WLANTL_STAPktPending( (WLAN_HDD_GET_CTX(pAdapter))->pvosContext,
-                             STAId, ac );
+       WLANTL_STAPktPending( (WLAN_HDD_GET_CTX(pAdapter))->pvosContext,
+                              STAId, ac
+                             );
    }
    //If we have already reached the max queue size, disable the TX queue
    if ( pAdapter->wmm_tx_queue[ac].count == pAdapter->wmm_tx_queue[ac].max_size)
@@ -777,10 +778,6 @@ VOS_STATUS hdd_Ibss_GetStaId(hdd_station_ctx_t *pHddStaCtx, v_MACADDR_t *pMacAdd
   ===========================================================================*/
 void hdd_tx_timeout(struct net_device *dev)
 {
-   hdd_adapter_t *pAdapter =  WLAN_HDD_GET_PRIV_PTR(dev);
-   struct netdev_queue *txq;
-   int i = 0;
-
    VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
       "%s: Transmission timeout occurred", __func__);
 
@@ -788,30 +785,6 @@ void hdd_tx_timeout(struct net_device *dev)
    //disabled either because of disassociation or low resource scenarios. In
    //case of disassociation it is ok to ignore this. But if associated, we have
    //do possible recovery here
-
-   VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-              "num_bytes AC0: %d AC1: %d AC2: %d AC3: %d",
-              pAdapter->wmm_tx_queue[0].count,
-              pAdapter->wmm_tx_queue[1].count,
-              pAdapter->wmm_tx_queue[2].count,
-              pAdapter->wmm_tx_queue[3].count);
-
-   VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-              "tx_suspend AC0: %d AC1: %d AC2: %d AC3: %d",
-              pAdapter->isTxSuspended[0],
-              pAdapter->isTxSuspended[1],
-              pAdapter->isTxSuspended[2],
-              pAdapter->isTxSuspended[3]);
-
-   for (i = 0; i < 8; i++)
-   {
-      txq = netdev_get_tx_queue(dev, i);
-      VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-                "Queue%d status: %d", i, netif_tx_queue_stopped(txq));
-   }
-
-   VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-              "carrier state: %d", netif_carrier_ok(dev));
 } 
 
 
@@ -943,10 +916,9 @@ v_BOOL_t hdd_IsEAPOLPacket( vos_pkt_t *pVosPacket )
     
     vosStatus = vos_pkt_peek_data( pVosPacket, (v_SIZE_t)HDD_ETHERTYPE_802_1_X_FRAME_OFFSET,
                           &pBuffer, HDD_ETHERTYPE_802_1_X_SIZE );
-    if ( VOS_IS_STATUS_SUCCESS( vosStatus ) )
+    if (VOS_IS_STATUS_SUCCESS( vosStatus ) )
     {
-       if ( pBuffer && *(unsigned short*)pBuffer ==
-                             vos_cpu_to_be16(HDD_ETHERTYPE_802_1_X) )
+       if ( vos_be16_to_cpu( *(unsigned short*)pBuffer ) == HDD_ETHERTYPE_802_1_X )
        {
           fEAPOL = VOS_TRUE;
        }
@@ -955,35 +927,6 @@ v_BOOL_t hdd_IsEAPOLPacket( vos_pkt_t *pVosPacket )
    return fEAPOL;
 }
 
-/**============================================================================
-  @brief hdd_IsARP() - Checks the packet is ARP or not.
-
-  @param pVosPacket : [in] pointer to vos packet
-  @return         : VOS_TRUE if the packet is ARP
-                  : VOS_FALSE otherwise
-  ===========================================================================*/
-
-v_BOOL_t hdd_IsARP( vos_pkt_t *pVosPacket )
-{
-    VOS_STATUS vosStatus  = VOS_STATUS_SUCCESS;
-    v_BOOL_t   fIsARP     = VOS_FALSE;
-    void       *pBuffer   = NULL;
-
-
-    vosStatus = vos_pkt_peek_data( pVosPacket,
-                           (v_SIZE_t)HDD_ETHERTYPE_802_1_X_FRAME_OFFSET,
-                          &pBuffer, HDD_ETHERTYPE_802_1_X_SIZE );
-    if ( VOS_IS_STATUS_SUCCESS( vosStatus ) )
-    {
-       if ( pBuffer && *(unsigned short*)pBuffer ==
-                                 vos_cpu_to_be16(HDD_ETHERTYPE_ARP) )
-       {
-          fIsARP = VOS_TRUE;
-       }
-    }
-
-   return fIsARP;
-}
 
 #ifdef FEATURE_WLAN_WAPI // Need to update this function
 /**============================================================================
@@ -1006,8 +949,7 @@ v_BOOL_t hdd_IsWAIPacket( vos_pkt_t *pVosPacket )
 
     if (VOS_IS_STATUS_SUCCESS( vosStatus ) )
     {
-       if ( pBuffer && *(unsigned short*)pBuffer ==
-                               vos_cpu_to_be16(HDD_ETHERTYPE_WAI) )
+       if ( vos_be16_to_cpu( *(unsigned short*)pBuffer ) == HDD_ETHERTYPE_WAI)
        {
           fIsWAI = VOS_TRUE;
        }
@@ -1115,7 +1057,6 @@ VOS_STATUS hdd_tx_fetch_packet_cbk( v_VOID_t *vosContext,
    v_TIME_t timestamp;
    WLANTL_ACEnumType newAc;
    v_SIZE_t size = 0;
-   v_U16_t packet_size;
    tANI_U8   acAdmitted, i;
    v_U8_t proto_type = 0;
 
@@ -1307,19 +1248,15 @@ VOS_STATUS hdd_tx_fetch_packet_cbk( v_VOID_t *vosContext,
                                           pHddCtx->cfg_ini->gEnableDebugLog);
       if (VOS_PKT_PROTO_TYPE_EAPOL & proto_type)
       {
-         VOS_TRACE(VOS_MODULE_ID_HDD_DATA, VOS_TRACE_LEVEL_ERROR,
+         VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
                    "STA TX EAPOL");
       }
       else if (VOS_PKT_PROTO_TYPE_DHCP & proto_type)
       {
-         VOS_TRACE(VOS_MODULE_ID_HDD_DATA, VOS_TRACE_LEVEL_ERROR,
+         VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
                    "STA TX DHCP");
       }
    }
-
-   vos_pkt_get_packet_length( pVosPacket,&packet_size );
-   if( HDD_ETHERTYPE_ARP_SIZE == packet_size )
-      pPktMetaInfo->ucIsArp = hdd_IsARP( pVosPacket ) ? 1 : 0;
 
 #ifdef FEATURE_WLAN_WAPI
    // Override usIsEapol value when its zero for WAPI case
@@ -1651,12 +1588,12 @@ VOS_STATUS hdd_rx_packet_cbk( v_VOID_t *vosContext,
                                              pHddCtx->cfg_ini->gEnableDebugLog);
          if (VOS_PKT_PROTO_TYPE_EAPOL & proto_type)
          {
-            VOS_TRACE(VOS_MODULE_ID_HDD_DATA, VOS_TRACE_LEVEL_ERROR,
+            VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
                       "STA RX EAPOL");
          }
          else if (VOS_PKT_PROTO_TYPE_DHCP & proto_type)
          {
-            VOS_TRACE(VOS_MODULE_ID_HDD_DATA, VOS_TRACE_LEVEL_ERROR,
+            VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
                       "STA RX DHCP");
          }
       }

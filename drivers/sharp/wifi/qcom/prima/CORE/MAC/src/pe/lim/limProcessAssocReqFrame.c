@@ -205,13 +205,7 @@ limProcessAssocReqFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,
     tANI_U8    *wpsIe = NULL;
     tSirMacRateSet  basicRates;
     tANI_U8 i = 0, j = 0;
-/* [WLAN][SHARP] 2013.10.18 Remedy for problem when an invalid key is detected in WPA-PSK Start */
-#ifndef SH_WIFI_CUSTOMIZE
-    tANI_BOOLEAN pmfConnection;
-#else /* SH_WIFI_CUSTOMIZE */
     tANI_BOOLEAN pmfConnection = eANI_BOOLEAN_FALSE;
-#endif /* SH_WIFI_CUSTOMIZE */
-/* [WLAN][SHARP] 2013.10.18 Remedy for problem when an invalid key is detected in WPA-PSK End */
 
     limGetPhyMode(pMac, &phyMode, psessionEntry);
 

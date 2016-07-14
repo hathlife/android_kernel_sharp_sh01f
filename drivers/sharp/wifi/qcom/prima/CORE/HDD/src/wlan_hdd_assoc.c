@@ -187,24 +187,6 @@ v_BOOL_t hdd_connIsConnected( hdd_station_ctx_t *pHddStaCtx )
    return( hdd_connGetConnectionState( pHddStaCtx, NULL ) );
 }
 
-eCsrBand hdd_connGetConnectedBand( hdd_station_ctx_t *pHddStaCtx )
-{
-   v_U8_t staChannel = 0;
-
-   if ( eConnectionState_Associated == pHddStaCtx->conn_info.connState )
-   {
-       staChannel = pHddStaCtx->conn_info.operationChannel;
-   }
-
-   if ( staChannel > 0 && staChannel < 14 )
-       return eCSR_BAND_24;
-   else if (staChannel >= 36 && staChannel <= 165 )
-      return eCSR_BAND_5G;
-   else  /* If station is not connected return as eCSR_BAND_ALL */
-      return eCSR_BAND_ALL;
-}
-
-
 //TODO - Not used anyhwere. Can be removed.
 #if 0
 //
@@ -543,13 +525,13 @@ static void hdd_SendNewAPChannelInfo(struct net_device *dev, hdd_adapter_t *pAda
     if (descriptor == NULL)
     {
         hddLog(LOGE,
-            "%s: pCsrRoamInfo->pBssDesc=%p\n",
+            "%s: pCsrRoamInfo->pBssDesc=%p",
             __func__, descriptor);
         return;
     }
 
     // Send the Channel event, the supplicant needs this to generate the Adjacent AP report.
-    hddLog(LOGW, "%s: Sending up an SIOCGIWFREQ, channelId=%d\n", __func__, descriptor->channelId);
+    hddLog(LOGW, "%s: Sending up an SIOCGIWFREQ, channelId=%d", __func__, descriptor->channelId);
     memset(&wrqu, '\0', sizeof(wrqu));
     wrqu.freq.m = descriptor->channelId;
     wrqu.freq.e = 0;
@@ -1103,7 +1085,7 @@ static void hdd_SendReAssocEvent(struct net_device *dev, hdd_adapter_t *pAdapter
 
     //pFTAssocRsp needs to point to the IEs
     pFTAssocRsp += FT_ASSOC_RSP_IES_OFFSET;
-    hddLog(LOG1, "%s: AssocRsp is now at %02x%02x\n", __func__,
+    hddLog(LOG1, "%s: AssocRsp is now at %02x%02x", __func__,
                     (unsigned int)pFTAssocRsp[0],
                     (unsigned int)pFTAssocRsp[1]);
 
@@ -1303,10 +1285,10 @@ static eHalStatus hdd_AssociationCompletionHandler( hdd_adapter_t *pAdapter, tCs
                 if(ft_carrier_on)
                 {
                     hddLog(LOG1, "%s ft_carrier_on is %d, sending roamed "
-                                 "indication\n", __FUNCTION__, ft_carrier_on);
+                                 "indication", __FUNCTION__, ft_carrier_on);
                     chan = ieee80211_get_channel(pAdapter->wdev.wiphy,
                                          (int)pRoamInfo->pBssDesc->channelId);
-                    hddLog(LOG1, "assocReqlen %d assocRsplen %d\n", assocReqlen,
+                    hddLog(LOG1, "assocReqlen %d assocRsplen %d", assocReqlen,
                                          assocRsplen);
                     cfg80211_roamed(dev,chan, pRoamInfo->bssid,
                                     pFTAssocReq, assocReqlen, pFTAssocRsp, assocRsplen,
@@ -1330,7 +1312,7 @@ static eHalStatus hdd_AssociationCompletionHandler( hdd_adapter_t *pAdapter, tCs
                 else
                 {
                     hddLog(LOG1, "%s ft_carrier_on is %d, sending connect "
-                                 "indication\n", __FUNCTION__, ft_carrier_on);
+                                 "indication", __FUNCTION__, ft_carrier_on);
                     cfg80211_connect_result(dev, pRoamInfo->bssid,
                                             pFTAssocReq, assocReqlen,
                                             pFTAssocRsp, assocRsplen,
@@ -1492,15 +1474,7 @@ static eHalStatus hdd_AssociationCompletionHandler( hdd_adapter_t *pAdapter, tCs
 
         /* CR465478: Only send up a connection failure result when CSR has
          * completed operation - with a ASSOCIATION_FAILURE status.*/
-/* [WLAN][SHARP] 2013.10.29 Fix for connection problem around MAC filtered AP Start */
-#ifndef SH_WIFI_CUSTOMIZE
         if ( eCSR_ROAM_ASSOCIATION_FAILURE == roamStatus )
-#else /* SH_WIFI_CUSTOMIZE */
-        if (( eCSR_ROAM_ASSOCIATION_FAILURE == roamStatus ) ||
-                (( eCSR_ROAM_ASSOCIATION_COMPLETION == roamStatus )
-                 && ( eCSR_ROAM_RESULT_NOT_ASSOCIATED == roamResult )))
-#endif /* SH_WIFI_CUSTOMIZE */
-/* [WLAN][SHARP] 2013.10.29 Fix for connection problem around MAC filtered AP End */
         {
             if (pRoamInfo)
                 hddLog(VOS_TRACE_LEVEL_ERROR,
@@ -1549,10 +1523,7 @@ static eHalStatus hdd_AssociationCompletionHandler( hdd_adapter_t *pAdapter, tCs
         /*Clear the roam profile*/
         hdd_clearRoamProfileIe( pAdapter );
 
-        if (pRoamInfo)
-        {
-            WLANTL_AssocFailed(pRoamInfo->staId);
-        }
+        WLANTL_AssocFailed(pRoamInfo->staId);
 
         netif_tx_disable(dev);
         netif_carrier_off(dev);
@@ -1599,8 +1570,6 @@ static void hdd_RoamIbssIndicationHandler( hdd_adapter_t *pAdapter,
           */
          hdd_connSetConnectionState( WLAN_HDD_GET_STATION_CTX_PTR(pAdapter),
                                      eConnectionState_IbssDisconnected );
-         /*notify wmm */
-         hdd_wmm_connect(pAdapter, pRoamInfo, eCSR_BSS_TYPE_IBSS);
          pHddCtx->sta_to_adapter[IBSS_BROADCAST_STAID] = pAdapter;
          hdd_roamRegisterSTA (pAdapter, pRoamInfo,
                       IBSS_BROADCAST_STAID,
@@ -1765,6 +1734,8 @@ static eHalStatus roamIbssConnectHandler( hdd_adapter_t *pAdapter, tCsrRoamInfo 
              __func__, pAdapter->dev->name);
       return eHAL_STATUS_FAILURE;
    }
+   /* send ibss join indication to nl80211 */
+   cfg80211_ibss_joined(pAdapter->dev, &pRoamInfo->bssid[0], GFP_KERNEL);
    cfg80211_put_bss(
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
                     WLAN_HDD_GET_CTX(pAdapter)->wiphy,
@@ -1985,7 +1956,7 @@ static eHalStatus roamRoamConnectStatusUpdateHandler( hdd_adapter_t *pAdapter, t
                               pRoamInfo->peerMac, WNI_CFG_BSSID_LEN);
 
             VOS_TRACE( VOS_MODULE_ID_HDD,
-               VOS_TRACE_LEVEL_INFO_HIGH, "New peer joined set PTK encType=%d\n",
+               VOS_TRACE_LEVEL_INFO_HIGH, "New peer joined set PTK encType=%d",
                pHddStaCtx->ibss_enc_key.encType);
 
             vosStatus = sme_RoamSetKey( WLAN_HDD_GET_HAL_CTX(pAdapter),
@@ -2106,12 +2077,12 @@ VOS_STATUS hdd_roamRegisterTDLSSTA( hdd_adapter_t *pAdapter,
                                           : (staDesc.ucQosEnabled = 0) ;
 
     VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "HDD register \
-                                TL QoS_enabled=%d\n", staDesc.ucQosEnabled );
+                                TL QoS_enabled=%d", staDesc.ucQosEnabled );
 
     staDesc.ucProtectedFrame = (connectedCipherAlgo != eCSR_ENCRYPT_TYPE_NONE) ;
 
     VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_MED,
-               "HDD register TL Sec_enabled= %d.\n", staDesc.ucProtectedFrame );
+               "HDD register TL Sec_enabled= %d.", staDesc.ucProtectedFrame );
 
     /*
      * UMA is ready we inform TL  to do frame translation.
@@ -3097,7 +3068,7 @@ int hdd_set_csr_auth_type ( hdd_adapter_t  *pAdapter, eCsrAuthType RSNAuthType)
     ENTER();
 
     pRoamProfile->AuthType.numEntries = 1;
-    hddLog( LOG1, "%s: pHddStaCtx->conn_info.authType = %d\n", __func__, pHddStaCtx->conn_info.authType);
+    hddLog( LOG1, "%s: pHddStaCtx->conn_info.authType = %d", __func__, pHddStaCtx->conn_info.authType);
 
     switch( pHddStaCtx->conn_info.authType)
     {
@@ -3116,11 +3087,11 @@ int hdd_set_csr_auth_type ( hdd_adapter_t  *pAdapter, eCsrAuthType RSNAuthType)
             if ((RSNAuthType == eCSR_AUTH_TYPE_CCKM_WPA) &&
                 ((pWextState->authKeyMgmt & IW_AUTH_KEY_MGMT_802_1X)
                  == IW_AUTH_KEY_MGMT_802_1X)) {
-                hddLog( LOG1, "%s: set authType to CCKM WPA. AKM also 802.1X.\n", __func__);
+                hddLog( LOG1, "%s: set authType to CCKM WPA. AKM also 802.1X.", __func__);
                 pRoamProfile->AuthType.authType[0] = eCSR_AUTH_TYPE_CCKM_WPA;
             } else
             if ((RSNAuthType == eCSR_AUTH_TYPE_CCKM_WPA)) {
-                hddLog( LOG1, "%s: Last chance to set authType to CCKM WPA.\n", __func__);
+                hddLog( LOG1, "%s: Last chance to set authType to CCKM WPA.", __func__);
                 pRoamProfile->AuthType.authType[0] = eCSR_AUTH_TYPE_CCKM_WPA;
             } else
 #endif
@@ -3140,11 +3111,11 @@ int hdd_set_csr_auth_type ( hdd_adapter_t  *pAdapter, eCsrAuthType RSNAuthType)
             if ((RSNAuthType == eCSR_AUTH_TYPE_CCKM_RSN) &&
                 ((pWextState->authKeyMgmt & IW_AUTH_KEY_MGMT_802_1X)
                  == IW_AUTH_KEY_MGMT_802_1X)) {
-                hddLog( LOG1, "%s: set authType to CCKM RSN. AKM also 802.1X.\n", __func__);
+                hddLog( LOG1, "%s: set authType to CCKM RSN. AKM also 802.1X.", __func__);
                 pRoamProfile->AuthType.authType[0] = eCSR_AUTH_TYPE_CCKM_RSN;
             } else
             if ((RSNAuthType == eCSR_AUTH_TYPE_CCKM_RSN)) {
-                hddLog( LOG1, "%s: Last chance to set authType to CCKM RSN.\n", __func__);
+                hddLog( LOG1, "%s: Last chance to set authType to CCKM RSN.", __func__);
                 pRoamProfile->AuthType.authType[0] = eCSR_AUTH_TYPE_CCKM_RSN;
             } else
 #endif
@@ -3188,7 +3159,7 @@ int hdd_set_csr_auth_type ( hdd_adapter_t  *pAdapter, eCsrAuthType RSNAuthType)
         default:
 
 #ifdef FEATURE_WLAN_CCX
-           hddLog( LOG1, "%s: In default, unknown auth type.\n", __func__);
+           hddLog( LOG1, "%s: In default, unknown auth type.", __func__);
 #endif /* FEATURE_WLAN_CCX */
            pRoamProfile->AuthType.authType[0] = eCSR_AUTH_TYPE_UNKNOWN;
            break;
@@ -3569,8 +3540,8 @@ int iw_set_auth(struct net_device *dev,struct iw_request_info *info,
 #define IW_AUTH_KEY_MGMT_CCKM       8  /* Should be in linux/wireless.h */
          /*Check for CCKM AKM type */
          if ( wrqu->param.value & IW_AUTH_KEY_MGMT_CCKM) {
-            //hddLog(VOS_TRACE_LEVEL_INFO_HIGH,"%s: CCKM AKM Set %d\n", __func__, wrqu->param.value);
-            hddLog(VOS_TRACE_LEVEL_INFO,"%s: CCKM AKM Set %d\n", __func__, wrqu->param.value);
+            hddLog(VOS_TRACE_LEVEL_INFO,"%s: CCKM AKM Set %d",
+                   __func__, wrqu->param.value);
             /* Set the CCKM bit in authKeyMgmt */
             /* Right now, this breaks all ref to authKeyMgmt because our
              * code doesn't realize it is a "bitfield"

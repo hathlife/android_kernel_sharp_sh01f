@@ -113,8 +113,6 @@ typedef struct
 // the 3 character 'name' of the module for marking the trace logs.
 moduleTraceInfo gVosTraceInfo[ VOS_MODULE_ID_MAX ] =
 {
-/* [WLAN][SHARP] 2013.05.08 reduce log Start */
-#ifndef SH_WIFI_CUSTOMIZE
    [VOS_MODULE_ID_BAP]        = { VOS_DEFAULT_TRACE_LEVEL, "BAP" },
    [VOS_MODULE_ID_TL]         = { VOS_DEFAULT_TRACE_LEVEL, "TL " },
    [VOS_MODULE_ID_WDI]        = { VOS_DEFAULT_TRACE_LEVEL, "WDI" },
@@ -123,28 +121,12 @@ moduleTraceInfo gVosTraceInfo[ VOS_MODULE_ID_MAX ] =
    [VOS_MODULE_ID_PE]         = { VOS_DEFAULT_TRACE_LEVEL, "PE " },
    [VOS_MODULE_ID_WDA]        = { VOS_DEFAULT_TRACE_LEVEL, "WDA" },
    [VOS_MODULE_ID_SYS]        = { VOS_DEFAULT_TRACE_LEVEL, "SYS" },
-#else /* SH_WIFI_CUSTOMIZE */
-   [VOS_MODULE_ID_BAP]        = { (1<<VOS_TRACE_LEVEL_FATAL), "BAP" },
-   [VOS_MODULE_ID_TL]         = { (1<<VOS_TRACE_LEVEL_FATAL), "TL " },
-   [VOS_MODULE_ID_WDI]        = { (1<<VOS_TRACE_LEVEL_FATAL), "WDI"},
-   [VOS_MODULE_ID_HDD]        = { (1<<VOS_TRACE_LEVEL_FATAL), "HDD" },
-   [VOS_MODULE_ID_SME]        = { (1<<VOS_TRACE_LEVEL_FATAL), "SME" },
-   [VOS_MODULE_ID_PE]         = { (1<<VOS_TRACE_LEVEL_FATAL), "PE " },
-   [VOS_MODULE_ID_WDA]        = { (1<<VOS_TRACE_LEVEL_FATAL), "WDA" },
-   [VOS_MODULE_ID_SYS]        = { (1<<VOS_TRACE_LEVEL_FATAL), "SYS" },
-#endif /* SH_WIFI_CUSTOMIZE */
    [VOS_MODULE_ID_VOSS]       = { VOS_DEFAULT_TRACE_LEVEL, "VOS" },
-#ifndef SH_WIFI_CUSTOMIZE
    [VOS_MODULE_ID_SAP]        = { VOS_DEFAULT_TRACE_LEVEL, "SAP" },
    [VOS_MODULE_ID_HDD_SOFTAP] = { VOS_DEFAULT_TRACE_LEVEL, "HSP" },
    [VOS_MODULE_ID_PMC]        = { VOS_DEFAULT_TRACE_LEVEL, "PMC" },
-#else /* SH_WIFI_CUSTOMIZE */
-   [VOS_MODULE_ID_SAP]        = { (1<<VOS_TRACE_LEVEL_FATAL), "SAP" },
-   [VOS_MODULE_ID_HDD_SOFTAP] = { (1<<VOS_TRACE_LEVEL_FATAL), "HSP" },
-   [VOS_MODULE_ID_PMC]        = { (1<<VOS_TRACE_LEVEL_FATAL), "PMC" },
-#endif /* SH_WIFI_CUSTOMIZE */
-/* [WLAN][SHARP] 2013.05.08 reduce log End */
    [VOS_MODULE_ID_HDD_DATA]   = { VOS_DEFAULT_TRACE_LEVEL, "HDP" },
+   [VOS_MODULE_ID_HDD_SAP_DATA] = { VOS_DEFAULT_TRACE_LEVEL, "SDP" },
 };
 /*-------------------------------------------------------------------------
   Static and Global variables
@@ -573,6 +555,7 @@ void vosTraceInit()
 void vos_trace(v_U8_t module, v_U8_t code, v_U8_t session, v_U32_t data)
 {
     tpvosTraceRecord rec = NULL;
+    unsigned long flags;
 
 
     if (!gvosTraceData.enable)
@@ -586,7 +569,7 @@ void vos_trace(v_U8_t module, v_U8_t code, v_U8_t session, v_U32_t data)
     }
 
     /* Aquire the lock so that only one thread at a time can fill the ring buffer */
-    spin_lock(&ltraceLock);
+    spin_lock_irqsave(&ltraceLock, flags);
 
     gvosTraceData.num++;
 
@@ -630,7 +613,7 @@ void vos_trace(v_U8_t module, v_U8_t code, v_U8_t session, v_U32_t data)
     rec->time = vos_timer_get_system_time();
     rec->module =  module;
     gvosTraceData.numSinceLastDump ++;
-    spin_unlock(&ltraceLock);
+    spin_unlock_irqrestore(&ltraceLock, flags);
 }
 
 

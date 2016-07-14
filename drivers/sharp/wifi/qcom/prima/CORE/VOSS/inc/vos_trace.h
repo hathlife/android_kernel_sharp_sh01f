@@ -113,6 +113,9 @@ typedef enum
 
 #ifdef TRACE_RECORD
 
+#define CASE_RETURN_STRING( str )           \
+    case ( ( str ) ): return( (tANI_U8*)(#str) );
+
 #define MTRACE(p) p
 #define NO_SESSION 0xFF
 
@@ -149,9 +152,6 @@ typedef struct svosTraceData
 
 }tvosTraceData;
 
-
-#define CASE_RETURN_STRING( str )           \
-    case ( ( str ) ): return( (tANI_U8*)(#str) );
 
 /*------------------------------------------------------------------------- 
   Function declarations and documenation

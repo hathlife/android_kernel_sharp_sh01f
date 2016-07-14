@@ -83,7 +83,7 @@ void sme_FTOpen(tHalHandle hHal)
 void sme_FTClose(tHalHandle hHal)
 {
     tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
-
+    
     //Clear the FT Context.
     sme_FTReset(hHal);
 

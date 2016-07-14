@@ -216,10 +216,6 @@ void logDebug(tpAniSirGlobal pMac, tANI_U8 modId, tANI_U32 debugLevel, const cha
     vsnprintf(logBuffer, LOG_SIZE - 1, pStr, marker);
     VOS_TRACE(vosModuleId, vosDebugLevel, "%s", logBuffer);
 
-/* [WLAN][SHARP] 2013.09.25 Correction of log output Start */
-#ifndef SH_WIFI_CUSTOMIZE
     // The caller must check loglevel
     VOS_ASSERT( ( debugLevel <= pMac->utils.gLogDbgLevel[LOG_INDEX_FOR_MODULE( modId )] ) && ( LOGP != debugLevel ) );
-#endif /* SH_WIFI_CUSTOMIZE */
-/* [WLAN][SHARP] 2013.09.25 Correction of log output End */
 } /*** end logDebug() ***/

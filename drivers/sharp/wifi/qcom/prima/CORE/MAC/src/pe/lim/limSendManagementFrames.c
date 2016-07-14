@@ -639,18 +639,6 @@ limSendProbeRspMgmtFrame(tpAniSirGlobal pMac,
     }
 #endif
 
-    if (psessionEntry->oxygenNwkIniFeatureEnabled &&
-       (eLIM_STA_IN_IBSS_ROLE == psessionEntry->limSystemRole)) {
-        if (wlan_cfgGetInt(pMac, WNI_CFG_OXYGEN_NETWORK_DATA,
-                                     &tmp) != eSIR_SUCCESS){
-            limLog(pMac, LOGW, FL("Unable to get WNI_CFG_OXYGEN_NETWORK_DATA"));
-        }
-        else {
-            pFrm->OxygenNetwork.present = 1;
-            pFrm->OxygenNetwork.data = (tmp & 0xffff);
-        }
-    }
-
     if ( psessionEntry->pLimStartBssReq ) 
     {
       PopulateDot11fWPA( pMac, &( psessionEntry->pLimStartBssReq->rsnIE ),
@@ -1498,6 +1486,12 @@ limSendAssocRspMgmtFrame(tpAniSirGlobal pMac,
         txFlag |= HAL_USE_BD_RATE2_FOR_MANAGEMENT_FRAME;
     }
 
+    limLog( pMac, LOG1, FL("Sending Assoc resp over WQ5 to "MAC_ADDRESS_STR
+                " From " MAC_ADDRESS_STR),MAC_ADDR_ARRAY(pMacHdr->da),
+              MAC_ADDR_ARRAY(psessionEntry->selfMacAddr));
+
+    txFlag |= HAL_USE_FW_IN_TX_PATH;
+
     MTRACE(macTrace(pMac, TRACE_CODE_TX_MGMT,
            psessionEntry->peSessionId,
            pMacHdr->fc.subType));
@@ -2011,8 +2005,8 @@ limSendAssocReqMgmtFrame(tpAniSirGlobal   pMac,
 #if defined WLAN_FEATURE_VOWIFI
     tANI_U8             PowerCapsPopulated = FALSE;
 #endif
-    tANI_U32            txFlag = 0;
     tpSirMacMgmtHdr     pMacHdr;
+    tANI_U32            txFlag = 0;
 
     if(NULL == psessionEntry)
     {
@@ -2354,6 +2348,11 @@ limSendAssocReqMgmtFrame(tpAniSirGlobal   pMac,
     }
 
     pMacHdr = ( tpSirMacMgmtHdr ) pFrame;
+    limLog( pMac, LOG1, FL("Sending Assoc req over WQ5 to "MAC_ADDRESS_STR
+              " From " MAC_ADDRESS_STR),MAC_ADDR_ARRAY(pMacHdr->da),
+              MAC_ADDR_ARRAY(psessionEntry->selfMacAddr));
+    txFlag |= HAL_USE_FW_IN_TX_PATH;
+
     MTRACE(macTrace(pMac, TRACE_CODE_TX_MGMT,
            psessionEntry->peSessionId,
            pMacHdr->fc.subType));
@@ -2412,8 +2411,8 @@ limSendReassocReqWithFTIEsMgmtFrame(tpAniSirGlobal     pMac,
 #if defined FEATURE_WLAN_CCX || defined(FEATURE_WLAN_LFR)
     tANI_U8               *wpsIe = NULL;
 #endif
-    tANI_U32              txFlag = 0;
     tpSirMacMgmtHdr       pMacHdr;
+    tANI_U32              txFlag = 0;
 
     if (NULL == psessionEntry)
     {
@@ -3486,6 +3485,12 @@ limSendAuthMgmtFrame(tpAniSirGlobal pMac,
         txFlag |= HAL_USE_PEER_STA_REQUESTED_MASK;
     }
 
+    limLog( pMac, LOG1, FL("Sending Auth Frame over WQ5 to "MAC_ADDRESS_STR
+                   " From " MAC_ADDRESS_STR),MAC_ADDR_ARRAY(pMacHdr->da),
+              MAC_ADDR_ARRAY(psessionEntry->selfMacAddr));
+
+    txFlag |= HAL_USE_FW_IN_TX_PATH;
+
     MTRACE(macTrace(pMac, TRACE_CODE_TX_MGMT,
            psessionEntry->peSessionId,
            pMacHdr->fc.subType));
@@ -3545,50 +3550,6 @@ eHalStatus limSendDeauthCnf(tpAniSirGlobal pMac)
 
         /// Receive path cleanup with dummy packet
         limCleanupRxPath(pMac, pStaDs,psessionEntry);
-
-#ifdef WLAN_FEATURE_VOWIFI_11R
-        if  ( (psessionEntry->limSystemRole == eLIM_STA_ROLE ) &&
-                (
-#ifdef FEATURE_WLAN_ESE
-                 (psessionEntry->isESEconnection ) ||
-#endif
-#ifdef FEATURE_WLAN_LFR
-                 (psessionEntry->isFastRoamIniFeatureEnabled ) ||
-#endif
-                 (psessionEntry->is11Rconnection )))
-        {
-            PELOGE(limLog(pMac, LOGE,
-                   FL("FT Preauth Session (%p,%d) Cleanup"
-                      " Deauth reason %d Trigger = %d"),
-                   psessionEntry, psessionEntry->peSessionId,
-                   pMlmDeauthReq->reasonCode,
-                   pMlmDeauthReq->deauthTrigger););
-            limFTCleanup(pMac);
-        }
-        else
-        {
-            PELOGE(limLog(pMac, LOGE,
-                   FL("No FT Preauth Session Cleanup in role %d"
-#ifdef FEATURE_WLAN_ESE
-                   " isESE %d"
-#endif
-#ifdef FEATURE_WLAN_LFR
-                   " isLFR %d"
-#endif
-                   " is11r %d, Deauth reason %d Trigger = %d"),
-                   psessionEntry->limSystemRole,
-#ifdef FEATURE_WLAN_ESE
-                   psessionEntry->isESEconnection,
-#endif
-#ifdef FEATURE_WLAN_LFR
-                   psessionEntry->isFastRoamIniFeatureEnabled,
-#endif
-                   psessionEntry->is11Rconnection,
-                   pMlmDeauthReq->reasonCode,
-                   pMlmDeauthReq->deauthTrigger););
-        }
-#endif
-
         /// Free up buffer allocated for mlmDeauthReq
         vos_mem_free(pMlmDeauthReq);
         pMac->lim.limDisassocDeauthCnfReq.pMlmDeauthReq = NULL;
@@ -3873,6 +3834,9 @@ limSendDisassocMgmtFrame(tpAniSirGlobal pMac,
         /* Without this for DEL_STA command there is
            risk of flushing frame in BTQM queue without
            sending on air */
+        limLog( pMac, LOG1, FL("Sending Disassoc Frame over WQ5 to "MAC_ADDRESS_STR
+                " From " MAC_ADDRESS_STR),MAC_ADDR_ARRAY(pMacHdr->da),
+              MAC_ADDR_ARRAY(psessionEntry->selfMacAddr));
         txFlag |= HAL_USE_FW_IN_TX_PATH;
     }
 
@@ -4080,6 +4044,9 @@ limSendDeauthMgmtFrame(tpAniSirGlobal pMac,
         /* Without this for DEL_STA command there is
            risk of flushing frame in BTQM queue without
            sending on air */
+        limLog( pMac, LOG1, FL("Sending Deauth Frame over WQ5 to "MAC_ADDRESS_STR
+               " From " MAC_ADDRESS_STR),MAC_ADDR_ARRAY(pMacHdr->da),
+              MAC_ADDR_ARRAY(psessionEntry->selfMacAddr));
         txFlag |= HAL_USE_FW_IN_TX_PATH;
     }
 
@@ -4102,7 +4069,7 @@ limSendDeauthMgmtFrame(tpAniSirGlobal pMac,
         MTRACE(macTrace(pMac, TRACE_CODE_TX_COMPLETE,
                psessionEntry->peSessionId,
                halstatus));
-        if ( !HAL_STATUS_SUCCESS(halstatus))
+        if (!HAL_STATUS_SUCCESS(halstatus))
         {
             limLog( pMac, LOGE, FL("Failed to send De-Authentication "
                     "(%X)!"),
